@@ -753,12 +753,13 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: center; /* centré par défaut (mode question) */
   padding: 28px 60px 24px;
   position: relative;
   z-index: 2;
   min-height: 0;
   overflow: hidden;
+  /* Les enfants en mode résultats s'alignent en haut via leur propre flex */
 }
 
 /* Attente scène */
@@ -798,6 +799,61 @@ body {
   text-wrap: balance;
   flex-shrink: 0;
   margin-bottom: 24px;
+  /* transition glissement vers le haut en mode résultats */
+  transition: transform 0.65s cubic-bezier(0.76,0,0.24,1), margin-bottom 0.65s cubic-bezier(0.76,0,0.24,1);
+  transform: translateY(0);
+}
+
+/* ─── MODES SCÈNE ─── */
+
+/* Mode "question" : question centrée, barres invisibles */
+#scene-poll.mode-question {
+  justify-content: center;
+  flex: none; /* ne pas étirer — centrage confié au parent */
+  width: 100%;
+  max-width: 800px;
+}
+#scene-poll.mode-question .scene-question {
+  font-size: 42px;
+  margin-bottom: 0;
+  transform: translateY(0);
+}
+#scene-poll.mode-question .scene-bars-wrap,
+#scene-poll.mode-question .scene-total {
+  opacity: 0;
+  pointer-events: none;
+  max-height: 0;
+  overflow: hidden;
+  transition: none;
+}
+
+/* Mode "résultats" : question en haut, barres en fondu */
+#scene-poll.mode-results {
+  flex: 1; /* reprendre toute la hauteur disponible */
+  justify-content: flex-start;
+}
+#scene-poll.mode-results .scene-question {
+  font-size: 34px;
+  transform: translateY(0);
+  margin-bottom: 24px;
+  transition: transform 0.65s cubic-bezier(0.76,0,0.24,1),
+              font-size 0.65s cubic-bezier(0.76,0,0.24,1),
+              margin-bottom 0.65s cubic-bezier(0.76,0,0.24,1);
+}
+#scene-poll.mode-results .scene-bars-wrap {
+  opacity: 1;
+  pointer-events: auto;
+  max-height: none;
+  animation: fadeInUp 0.7s cubic-bezier(0.34,1.18,0.64,1) both;
+}
+#scene-poll.mode-results .scene-total {
+  opacity: 1;
+  animation: fadeInUp 0.7s 0.1s cubic-bezier(0.34,1.18,0.64,1) both;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* Barres verticales */
@@ -2096,6 +2152,14 @@ function renderScene(poll, sceneMode) {
   // Vue question ou résultats
   sceneAnswer.style.display = 'none';
   scenePoll.style.display = 'flex';
+
+  // Appliquer la classe de mode pour les transitions CSS
+  // On retire d'abord les deux pour forcer la re-animation si on repasse en results
+  scenePoll.classList.remove('mode-question', 'mode-results');
+  // Petit délai pour que le retrait soit effectif avant l'ajout (force re-animation)
+  requestAnimationFrame(() => {
+    scenePoll.classList.add(mode === 'results' ? 'mode-results' : 'mode-question');
+  });
 
   const showResults = (mode === 'results');
   const opts = poll.options || [];
