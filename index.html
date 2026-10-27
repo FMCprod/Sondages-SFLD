@@ -390,12 +390,12 @@ body {
 
 .poll-item.active-poll {
   border-color: var(--violet);
-  background: linear-gradient(135deg, #f3eeff, #e8eef8);
+  background: rgba(120,80,180,0.22);
 }
 
 .poll-item.live-now {
   border-color: var(--green);
-  background: #f0fdf4;
+  background: rgba(140,214,60,0.12);
 }
 
 .poll-item-title {
@@ -818,11 +818,33 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
   max-width: 180px;
-  /* hauteur totale de la zone barre */
   height: 100%;
-  justify-content: flex-end;
+}
+
+/* Zone % — hauteur fixe en haut, toutes colonnes alignées */
+.scene-bar-col .scene-bar-pct {
+  height: 64px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 8px;
+}
+
+/* Track — hauteur fixe, toutes barres partent du même niveau */
+.scene-bar-col .scene-bar-track {
+  flex-shrink: 0;
+}
+
+/* Label + votes — poussés en bas, flexibles */
+.scene-bar-col .scene-bar-label {
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+.scene-bar-col .scene-bar-votes {
+  margin-top: 4px;
+  flex-shrink: 0;
 }
 
 /* Wrapper de la barre — hauteur fixe = zone max, sert d'ancre au bas */
@@ -874,12 +896,7 @@ body {
   color: #fff;
   text-shadow: 0 2px 14px rgba(0,0,0,0.6);
   line-height: 1;
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: font-size 0.6s cubic-bezier(0.34,1.18,0.64,1), opacity 0.4s ease;
-  order: -1; /* au-dessus de la barre */
 }
 
 .scene-bar-pct.leader {
@@ -894,12 +911,11 @@ body {
   color: rgba(255,255,255,0.85);
   text-align: center;
   line-height: 1.35;
-  max-height: 58px;
+  max-height: 68px;
   overflow: hidden;
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
-  order: 1; /* sous la barre */
 }
 
 .scene-bar-votes {
@@ -908,7 +924,6 @@ body {
   font-weight: 600;
   letter-spacing: 0.5px;
   transition: opacity 0.4s ease;
-  order: 2;
 }
 
 .scene-total {
@@ -936,7 +951,13 @@ body {
   z-index: 100;
   pointer-events: none;
   clip-path: inset(0 100% 0 0);
-  background: linear-gradient(135deg, #0E0520 0%, #7850B4 50%, #8CD63C 100%);
+  background: linear-gradient(105deg,
+    #0E0520 0%,
+    #3D1878 25%,
+    #7850B4 50%,
+    #A8D020 75%,
+    #8CD63C 100%
+  );
 }
 
 /* Fond déco scène */
@@ -1747,7 +1768,8 @@ function renderPollDetail(id) {
 
 window.launchSelectedPoll = async function() {
   if (!selectedPollId) return;
-  await set(liveRef(), { pollId: selectedPollId, resultsVisible: true });
+  // Déclencher le stinger en mettant stingerAt = timestamp
+  await set(liveRef(), { pollId: selectedPollId, resultsVisible: true, stingerAt: Date.now() });
   await update(ref(db, `${DB_PATH}/polls/${selectedPollId}`), { status: 'live' });
   showToast('Sondage lancé ▶');
 };
@@ -1890,6 +1912,8 @@ window.addEventListener('DOMContentLoaded', () => {
 // ─── VUE SCÈNE ───
 function initScene() {
   let prevPollId = null;
+  let prevStingerAt = null;
+  let pollUnsubscribe = null;
 
   onValue(liveRef(), (snap) => {
     const live = snap.val();
@@ -1897,24 +1921,40 @@ function initScene() {
       document.getElementById('scene-waiting').style.display = 'block';
       document.getElementById('scene-poll').style.display = 'none';
       prevPollId = null;
+      prevStingerAt = null;
       return;
     }
 
     const pollId = live.pollId;
     const showRes = live.resultsVisible !== false;
+    const stingerAt = live.stingerAt || null;
 
-    onValue(ref(db, `${DB_PATH}/polls/${pollId}`), (pSnap) => {
-      const poll = pSnap.val();
-      if (!poll) return;
+    // Stinger si : nouveau sondage OU nouveau stingerAt
+    const needStinger = (pollId !== prevPollId && prevPollId !== null)
+                     || (stingerAt && stingerAt !== prevStingerAt && prevPollId !== null);
 
-      const changed = pollId !== prevPollId;
-      if (changed && prevPollId !== null) {
-        playStinger(() => renderScene(poll, showRes));
-      } else {
+    // Réabonner au poll si changement de pollId
+    if (pollId !== prevPollId) {
+      if (pollUnsubscribe) { pollUnsubscribe(); pollUnsubscribe = null; }
+      pollUnsubscribe = onValue(ref(db, `${DB_PATH}/polls/${pollId}`), (pSnap) => {
+        const poll = pSnap.val();
+        if (!poll) return;
         renderScene(poll, showRes);
-      }
-      prevPollId = pollId;
-    });
+      });
+    }
+
+    if (needStinger) {
+      // Jouer le stinger — le render se fait à l'intérieur
+      const pollRef2 = ref(db, `${DB_PATH}/polls/${pollId}`);
+      get(pollRef2).then(pSnap => {
+        const poll = pSnap.val();
+        if (!poll) return;
+        playStinger(() => renderScene(poll, live.resultsVisible !== false));
+      });
+    }
+
+    prevPollId = pollId;
+    prevStingerAt = stingerAt;
   });
 }
 
@@ -1947,7 +1987,7 @@ function renderScene(poll, showResults) {
         <div class="scene-bar-track" id="sbtrack-${i}" style="height:${barMaxH}px; --bar-max-h:${barMaxH}px">
           <div class="scene-bar-fill" id="sbfill-${i}" style="height:16px; --bar-max-h:${barMaxH}px"></div>
         </div>
-        <div class="scene-bar-label">${escHtml(opt)}</div>
+        <div class="scene-bar-label" id="sblabel-${i}">${escHtml(opt)}</div>
         <div class="scene-bar-votes" id="sbvotes-${i}"></div>
       </div>`).join('');
     // 1 frame de délai pour que la transition parte de 0
@@ -2028,16 +2068,19 @@ function _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH_arg
 
 function playStinger(cb) {
   const el = document.getElementById('stinger');
-  // Entrée : sweep de gauche à droite
-  el.style.transition = 'clip-path 0.5s ease-in';
+  // Entrée rapide : balayage gauche → droite (recouvre l'écran)
+  el.style.transition = 'clip-path 0.42s cubic-bezier(0.76,0,0.24,1)';
   el.style.clipPath = 'inset(0 0% 0 0)';
   setTimeout(() => {
+    // Contenu mis à jour pendant que l'écran est couvert
     cb();
-    // Sortie : sweep vers la droite
-    el.style.transition = 'clip-path 0.5s ease-out';
-    el.style.clipPath = 'inset(0 0% 0 100%)';
-    setTimeout(() => { el.style.clipPath = 'inset(0 100% 0 0)'; }, 520);
-  }, 520);
+    // Sortie : balayage vers la droite (découvre le nouveau contenu)
+    setTimeout(() => {
+      el.style.transition = 'clip-path 0.44s cubic-bezier(0.76,0,0.24,1)';
+      el.style.clipPath = 'inset(0 0% 0 100%)';
+      setTimeout(() => { el.style.clipPath = 'inset(0 100% 0 0)'; }, 460);
+    }, 60);
+  }, 440);
 }
 
 // ─── UTILS ───
