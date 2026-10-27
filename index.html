@@ -134,7 +134,7 @@ body {
 
 .poll-option-btn {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   padding: 15px 18px;
   background: rgba(255,255,255,0.05);
@@ -147,6 +147,9 @@ body {
   text-align: left;
   transition: all 0.2s;
   width: 100%;
+}
+.poll-option-btn .option-letter {
+  margin-top: 2px;
 }
 
 .poll-option-btn:hover {
@@ -302,10 +305,10 @@ body {
 
 .btn-outline {
   background: transparent;
-  border: 2px solid var(--navy);
-  color: var(--navy);
+  border: 2px solid rgba(255,255,255,0.5);
+  color: rgba(255,255,255,0.85);
 }
-.btn-outline:hover { background: var(--navy); color: #fff; }
+.btn-outline:hover { background: rgba(255,255,255,0.12); color: #fff; }
 
 .btn-danger {
   background: transparent;
@@ -488,11 +491,11 @@ body {
   width: 100%;
   padding: 12px 16px;
   border-radius: 10px;
-  border: 2px solid var(--border);
+  border: 2px solid rgba(120,80,180,0.35);
   font-size: 14px;
   font-family: inherit;
-  color: var(--text);
-  background: var(--surface);
+  color: #fff;
+  background: rgba(255,255,255,0.07);
   transition: border-color 0.2s;
   outline: none;
 }
@@ -985,12 +988,13 @@ body {
 .modal-overlay.open { display: flex; }
 
 .modal {
-  background: var(--surface);
+  background: #1A0A3A;
+  border: 1px solid rgba(120,80,180,0.35);
   border-radius: 16px;
   padding: 32px;
   max-width: 540px;
   width: 100%;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  box-shadow: 0 20px 80px rgba(0,0,0,0.7);
   max-height: 90vh;
   overflow-y: auto;
 }
@@ -998,7 +1002,7 @@ body {
 .modal-title {
   font-size: 18px;
   font-weight: 800;
-  color: var(--navy);
+  color: #fff;
   margin-bottom: 20px;
 }
 
@@ -1619,6 +1623,18 @@ async function castVote(pollId, optIdx, optText) {
   const cur = Number(snap.val() || 0);
   await set(vRef, cur + 1);
   localStorage.setItem(`sfld_vote_${pollId}`, optIdx);
+
+  // Mise à jour immédiate du DOM sans attendre le listener Firebase
+  const poll = polls[pollId];
+  if (poll) {
+    if (!poll.votes) poll.votes = {};
+    poll.votes[`opt${optIdx}`] = cur + 1;
+    const liveSnap = await get(liveRef());
+    const live = liveSnap.val();
+    const showRes = live?.showResults || false;
+    renderPublicPoll(pollId, poll, showRes);
+  }
+
   showVoteConfirm(optText);
 }
 
