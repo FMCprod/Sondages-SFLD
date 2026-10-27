@@ -948,6 +948,40 @@ body {
 #scene-poll.hidden-results .scene-bar-pct { opacity: 0; }
 #scene-poll.hidden-results .scene-bar-votes { opacity: 0; }
 
+/* Boutons mode scène */
+.scene-mode-btn {
+  background: rgba(255,255,255,0.07);
+  border: 2px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  transition: all 0.18s;
+}
+.scene-mode-btn:hover {
+  background: rgba(120,80,180,0.3);
+  border-color: var(--violet);
+  color: #fff;
+}
+.scene-mode-btn.active {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: #fff;
+}
+#btn-mode-answer.active {
+  background: linear-gradient(135deg, #7850B4, #8CD63C);
+  border-color: var(--green);
+}
+
+/* Vue bonne réponse scène */
+#scene-answer {
+  animation: fadeScaleIn 0.5s cubic-bezier(0.34,1.18,0.64,1);
+}
+@keyframes fadeScaleIn {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 /* Stinger */
 #stinger {
   position: fixed;
@@ -1330,9 +1364,14 @@ body {
                 <span class="status-dot" id="live-status-dot">Hors ligne</span>
                 <button class="btn btn-primary btn-sm" id="btn-launch-poll" onclick="launchSelectedPoll()">▶ Lancer</button>
                 <button class="btn btn-danger btn-sm" id="btn-stop-poll" onclick="stopLivePoll()" style="display:none">⏹ Arrêter</button>
-                <button class="btn btn-sm btn-icon" onclick="toggleResults()" id="btn-toggle-results" title="Masquer/Afficher résultats sur scène">👁️</button>
                 <button class="btn btn-sm btn-icon" onclick="editSelectedPoll()" title="Modifier">✏️</button>
                 <button class="btn btn-sm btn-icon" onclick="deleteSelectedPoll()" title="Supprimer" style="color:var(--red)">🗑️</button>
+              </div>
+              <!-- Boutons de mode scène — visibles seulement quand live -->
+              <div id="scene-mode-controls" style="display:none;margin-top:12px;gap:8px;flex-wrap:wrap;">
+                <button class="btn btn-sm scene-mode-btn" id="btn-mode-question" onclick="setSceneMode('question')" title="Afficher la question seule">❓ Question</button>
+                <button class="btn btn-sm scene-mode-btn" id="btn-mode-results" onclick="setSceneMode('results')" title="Afficher les résultats en direct">📊 Résultats</button>
+                <button class="btn btn-sm scene-mode-btn" id="btn-mode-answer" onclick="setSceneMode('answer')" title="Révéler la bonne réponse avec stinger">✅ Bonne réponse</button>
               </div>
             </div>
           </div>
@@ -1384,6 +1423,14 @@ body {
       <div class="scene-total" id="scene-total"></div>
     </div>
 
+    <!-- Vue bonne réponse -->
+    <div id="scene-answer" style="display:none;width:100%;max-width:900px;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:32px;">
+      <div style="font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.45);">BONNE RÉPONSE</div>
+      <div id="scene-answer-letter" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#7850B4,#8CD63C);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:#fff;box-shadow:0 0 48px rgba(140,214,60,0.5);margin:0 auto;"></div>
+      <div id="scene-answer-text" style="font-size:42px;font-weight:800;color:#8CD63C;line-height:1.2;text-shadow:0 0 48px rgba(140,214,60,0.5);text-wrap:balance;padding:0 24px;"></div>
+      <div id="scene-answer-question" style="font-size:18px;font-weight:500;color:rgba(255,255,255,0.45);line-height:1.4;text-wrap:balance;padding:0 48px;margin-top:8px;"></div>
+    </div>
+
   </div>
 
   <footer class="scene-footer">Powered by FMC Production</footer>
@@ -1413,6 +1460,12 @@ body {
       <label class="form-label">Réponses</label>
       <div class="options-builder" id="options-builder"></div>
       <button class="add-option-btn" onclick="addOption()">+ Ajouter une réponse</button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">✅ Bonne réponse</label>
+      <select class="form-input" id="modal-correct-answer">
+        <option value="">— Aucune (sondage d'opinion) —</option>
+      </select>
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="savePoll()">💾 Enregistrer</button>
@@ -1708,10 +1761,9 @@ function initAdmin() {
       }
       document.getElementById('btn-launch-poll').style.display = isLive ? 'none' : '';
       document.getElementById('btn-stop-poll').style.display = isLive ? '' : 'none';
-
-      resultsVisible = live?.resultsVisible !== false;
-      const btnToggle = document.getElementById('btn-toggle-results');
-      if (btnToggle) btnToggle.title = resultsVisible ? 'Masquer résultats sur scène' : 'Afficher résultats sur scène';
+      const modeControls = document.getElementById('scene-mode-controls');
+      if (modeControls) modeControls.style.display = isLive ? 'flex' : 'none';
+      if (isLive && live?.sceneMode) updateSceneModeButtons(live.sceneMode);
     }
   });
 }
@@ -1778,8 +1830,7 @@ function renderPollDetail(id) {
 
 window.launchSelectedPoll = async function() {
   if (!selectedPollId) return;
-  // Déclencher le stinger en mettant stingerAt = timestamp
-  await set(liveRef(), { pollId: selectedPollId, resultsVisible: true, stingerAt: Date.now() });
+  await set(liveRef(), { pollId: selectedPollId, sceneMode: 'question', stingerAt: Date.now() });
   await update(ref(db, `${DB_PATH}/polls/${selectedPollId}`), { status: 'live' });
   showToast('Sondage lancé ▶');
 };
@@ -1793,10 +1844,23 @@ window.stopLivePoll = async function() {
   showToast('Sondage arrêté ⏹');
 };
 
-window.toggleResults = async function() {
-  resultsVisible = !resultsVisible;
-  await update(liveRef(), { resultsVisible });
-  showToast(resultsVisible ? 'Résultats visibles 👁️' : 'Résultats masqués 🙈');
+window.setSceneMode = async function(mode) {
+  const live = (await get(liveRef())).val();
+  if (!live?.pollId) { showToast('Aucun sondage en cours'); return; }
+  if (mode === 'answer') {
+    // Stinger avant de révéler la bonne réponse
+    await update(liveRef(), { sceneMode: 'answer', stingerAt: Date.now() });
+  } else {
+    await update(liveRef(), { sceneMode: mode });
+  }
+  updateSceneModeButtons(mode);
+};
+
+function updateSceneModeButtons(mode) {
+  ['question','results','answer'].forEach(m => {
+    const btn = document.getElementById(`btn-mode-${m}`);
+    if (btn) btn.classList.toggle('active', m === mode);
+  });
 };
 
 window.openScene = function() {
@@ -1810,7 +1874,7 @@ window.openCreateModal = function() {
   _editingPollId = null;
   document.getElementById('modal-title').textContent = 'Nouveau sondage';
   document.getElementById('modal-question').value = '';
-  buildOptionsUI(['', '']);
+  buildOptionsUI(['', ''], null);
   document.getElementById('poll-modal').classList.add('open');
   setTimeout(() => document.getElementById('modal-question').focus(), 100);
 };
@@ -1822,14 +1886,30 @@ window.editSelectedPoll = function() {
   _editingPollId = selectedPollId;
   document.getElementById('modal-title').textContent = 'Modifier le sondage';
   document.getElementById('modal-question').value = poll.question || '';
-  buildOptionsUI(poll.options || ['','']);
+  buildOptionsUI(poll.options || ['',''], poll.correctAnswer ?? null);
   document.getElementById('poll-modal').classList.add('open');
 };
 
-function buildOptionsUI(opts) {
+function buildOptionsUI(opts, correctIdx) {
   const el = document.getElementById('options-builder');
   el.innerHTML = '';
   opts.forEach((o, i) => addOptionRow(o, i));
+  // Mettre à jour le select bonne réponse
+  refreshCorrectAnswerSelect(opts, correctIdx);
+}
+
+function refreshCorrectAnswerSelect(opts, correctIdx) {
+  const sel = document.getElementById('modal-correct-answer');
+  if (!sel) return;
+  const letters = 'ABCDEFGHIJ';
+  sel.innerHTML = '<option value="">— Aucune (sondage d\'opinion) —</option>';
+  (opts || []).forEach((o, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${letters[i]}. ${o || '(vide)'}`;
+    if (correctIdx !== null && correctIdx !== '' && Number(correctIdx) === i) opt.selected = true;
+    sel.appendChild(opt);
+  });
 }
 
 function addOptionRow(val='', idx=null) {
@@ -1846,7 +1926,6 @@ function addOptionRow(val='', idx=null) {
 
 window.addOption = function() {
   addOptionRow();
-  // Update letters
   refreshLetters();
 };
 
@@ -1856,11 +1935,16 @@ window.removeOption = function(btn) {
 };
 
 function refreshLetters() {
-  document.querySelectorAll('#options-builder .option-row').forEach((row, i) => {
+  const rows = [...document.querySelectorAll('#options-builder .option-row')];
+  rows.forEach((row, i) => {
     const letter = String.fromCharCode(65 + i);
     row.querySelector('.option-letter').textContent = letter;
     row.querySelector('.option-input').placeholder = `Réponse ${letter}`;
   });
+  // Mettre à jour le select
+  const curSel = document.getElementById('modal-correct-answer')?.value;
+  const opts = rows.map(r => r.querySelector('.option-input').value);
+  refreshCorrectAnswerSelect(opts, curSel !== '' ? curSel : null);
 }
 
 window.savePoll = async function() {
@@ -1869,11 +1953,15 @@ window.savePoll = async function() {
   if (!question) { showToast('Question requise'); return; }
   if (opts.length < 2) { showToast('Minimum 2 réponses'); return; }
 
+  const correctSel = document.getElementById('modal-correct-answer')?.value;
+  const correctAnswer = (correctSel !== '' && correctSel !== null && correctSel !== undefined)
+    ? Number(correctSel) : null;
+
   if (_editingPollId) {
-    await update(ref(db, `${DB_PATH}/polls/${_editingPollId}`), { question, options: opts });
+    await update(ref(db, `${DB_PATH}/polls/${_editingPollId}`), { question, options: opts, correctAnswer });
     showToast('Sondage modifié ✓');
   } else {
-    await push(pollsRef(), { question, options: opts, status: 'draft', votes: {} });
+    await push(pollsRef(), { question, options: opts, status: 'draft', votes: {}, correctAnswer });
     showToast('Sondage créé ✓');
   }
   closeModal();
@@ -1936,7 +2024,7 @@ function initScene() {
     }
 
     const pollId = live.pollId;
-    const showRes = live.resultsVisible !== false;
+    const sceneMode = live.sceneMode || 'question';
     const stingerAt = live.stingerAt || null;
 
     // Stinger si : nouveau sondage OU nouveau stingerAt
@@ -1949,17 +2037,27 @@ function initScene() {
       pollUnsubscribe = onValue(ref(db, `${DB_PATH}/polls/${pollId}`), (pSnap) => {
         const poll = pSnap.val();
         if (!poll) return;
-        renderScene(poll, showRes);
+        // Le mode actuel est dans live — on relit via closure
+        const currentLive = snap.val();
+        renderScene(poll, currentLive?.sceneMode || 'question');
       });
     }
 
     if (needStinger) {
-      // Jouer le stinger — le render se fait à l'intérieur
+      // Stinger → render à l'intérieur (annule le render de l'abonnement)
       const pollRef2 = ref(db, `${DB_PATH}/polls/${pollId}`);
       get(pollRef2).then(pSnap => {
         const poll = pSnap.val();
         if (!poll) return;
-        playStinger(() => renderScene(poll, live.resultsVisible !== false));
+        playStinger(() => renderScene(poll, sceneMode));
+      });
+    } else if (pollId === prevPollId) {
+      // Même sondage, mode changé → render direct
+      const pollRef3 = ref(db, `${DB_PATH}/polls/${pollId}`);
+      get(pollRef3).then(pSnap => {
+        const poll = pSnap.val();
+        if (!poll) return;
+        renderScene(poll, sceneMode);
       });
     }
 
@@ -1968,11 +2066,38 @@ function initScene() {
   });
 }
 
-function renderScene(poll, showResults) {
+function renderScene(poll, sceneMode) {
+  // sceneMode: 'question' | 'results' | 'answer'
+  const mode = sceneMode || 'question';
   document.getElementById('scene-waiting').style.display = 'none';
+
   const scenePoll = document.getElementById('scene-poll');
+  const sceneAnswer = document.getElementById('scene-answer');
+
+  if (mode === 'answer') {
+    // Vue bonne réponse
+    scenePoll.style.display = 'none';
+    sceneAnswer.style.display = 'flex';
+    const opts = poll.options || [];
+    const correctIdx = poll.correctAnswer ?? null;
+    const letters = 'ABCDEFGHIJ';
+    if (correctIdx !== null && opts[correctIdx] !== undefined) {
+      document.getElementById('scene-answer-letter').textContent = letters[correctIdx] || '?';
+      document.getElementById('scene-answer-text').textContent = opts[correctIdx];
+      document.getElementById('scene-answer-question').textContent = poll.question || '';
+    } else {
+      document.getElementById('scene-answer-letter').textContent = '?';
+      document.getElementById('scene-answer-text').textContent = 'Bonne réponse non définie';
+      document.getElementById('scene-answer-question').textContent = poll.question || '';
+    }
+    return;
+  }
+
+  // Vue question ou résultats
+  sceneAnswer.style.display = 'none';
   scenePoll.style.display = 'flex';
 
+  const showResults = (mode === 'results');
   const opts = poll.options || [];
   const votes = poll.votes || {};
   const total = Object.values(votes).reduce((s,v)=>s+Number(v),0);
@@ -1986,7 +2111,8 @@ function renderScene(poll, showResults) {
   const existingCols = barsEl.querySelectorAll('.scene-bar-col');
   const needRebuild = existingCols.length !== opts.length;
 
-  // Calculer la hauteur max disponible pour les barres
+  // La hauteur max des barres = hauteur de la zone disponible
+  // On laisse le CSS Grid décider, puis on lit la hauteur réelle du track
   const barMaxH = Math.round(window.innerHeight * 0.54);
   barsEl.style.setProperty('--bar-max-h', barMaxH + 'px');
 
@@ -2000,10 +2126,17 @@ function renderScene(poll, showResults) {
         <div class="scene-bar-label" id="sblabel-${i}">${escHtml(opt)}</div>
         <div class="scene-bar-votes" id="sbvotes-${i}"></div>
       </div>`).join('');
-    // 1 frame de délai pour que la transition parte de 0
-    requestAnimationFrame(() => _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH));
+    // 2 frames de délai : 1 pour le layout, 1 pour lire la hauteur réelle
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      // Lire la hauteur réelle du premier track pour calibrer toutes les barres
+      const firstTrack = document.getElementById('sbtrack-0');
+      const realMaxH = firstTrack ? firstTrack.getBoundingClientRect().height : barMaxH;
+      _updateSceneBars(opts, votes, total, maxVotes, showResults, realMaxH);
+    }));
   } else {
-    _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH);
+    const firstTrack = document.getElementById('sbtrack-0');
+    const realMaxH = firstTrack ? firstTrack.getBoundingClientRect().height : barMaxH;
+    _updateSceneBars(opts, votes, total, maxVotes, showResults, realMaxH);
   }
 
   const totalEl = document.getElementById('scene-total');
