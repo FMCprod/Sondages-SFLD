@@ -767,6 +767,11 @@ body {
 .scene-content:has(#scene-poll[data-scene-mode="results"]) {
   justify-content: flex-start;
 }
+/* Centrage garanti en mode question seule */
+.scene-content:has(#scene-poll[data-scene-mode="question"]) {
+  justify-content: center;
+  align-items: center;
+}
 
 /* Attente scène */
 #scene-waiting {
@@ -804,6 +809,7 @@ body {
   text-shadow: 0 2px 24px rgba(0,0,0,0.4);
   text-wrap: balance;
   flex-shrink: 0;
+  width: 100%;
   margin-bottom: 24px;
   /* Transitions TOUJOURS présentes — ne jamais les retirer */
   transition:
@@ -1041,6 +1047,9 @@ body {
 /* Vue bonne réponse scène */
 #scene-answer {
   animation: fadeScaleIn 0.5s cubic-bezier(0.34,1.18,0.64,1);
+  margin: 0 auto;
+  /* Centrage garanti dans le parent flex-column */
+  align-self: center;
 }
 @keyframes fadeScaleIn {
   from { opacity: 0; transform: scale(0.85); }
@@ -1430,6 +1439,8 @@ body {
                 <button class="btn btn-primary btn-sm" id="btn-launch-poll" onclick="launchSelectedPoll()">▶ Lancer</button>
                 <button class="btn btn-danger btn-sm" id="btn-stop-poll" onclick="stopLivePoll()" style="display:none">⏹ Arrêter</button>
                 <button class="btn btn-sm btn-icon" onclick="editSelectedPoll()" title="Modifier">✏️</button>
+                <button class="btn btn-sm btn-icon" onclick="duplicateSelectedPoll()" title="Dupliquer">⧉</button>
+                <button class="btn btn-sm btn-icon" onclick="resetSelectedPollVotes()" title="Remettre les votes à zéro" style="color:var(--yellow)">↺</button>
                 <button class="btn btn-sm btn-icon" onclick="deleteSelectedPoll()" title="Supprimer" style="color:var(--red)">🗑️</button>
               </div>
               <!-- Boutons de mode scène — visibles seulement quand live -->
@@ -1489,7 +1500,7 @@ body {
     </div>
 
     <!-- Vue bonne réponse -->
-    <div id="scene-answer" style="display:none;width:100%;max-width:900px;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:32px;">
+    <div id="scene-answer" style="display:none;width:100%;max-width:900px;text-align:center;flex-direction:column;align-items:center;justify-content:center;gap:32px;margin:0 auto;">
       <div style="font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.45);">BONNE RÉPONSE</div>
       <div id="scene-answer-letter" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#7850B4,#8CD63C);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:#fff;box-shadow:0 0 48px rgba(140,214,60,0.5);margin:0 auto;"></div>
       <div id="scene-answer-text" style="font-size:42px;font-weight:800;color:#8CD63C;line-height:1.2;text-shadow:0 0 48px rgba(140,214,60,0.5);text-wrap:balance;padding:0 24px;"></div>
@@ -1589,6 +1600,7 @@ let selectedPollId = null;
 let isAdmin = false;
 let resultsVisible = true;  // Contrôle affichage résultats sur scène
 let _editingPollId = null;
+let currentLiveData = null; // dernier état Firebase live
 let currentPublicPoll = null;  // poll courant côté participant
 let currentPublicPollId = null;
 
@@ -1708,7 +1720,7 @@ function renderPublicPoll(pollId, poll, showResults) {
     opts.forEach((opt, i) => {
       const btn = document.createElement('button');
       btn.className = 'poll-option-btn';
-      const letter = String.fromCharCode(65 + i);
+      const letter = (i + 1);
       btn.innerHTML = `<span class="option-letter">${letter}</span> <span>${opt}</span>`;
       btn.onclick = () => askVoteConfirm(pollId, i, opt);
       optionsEl.appendChild(btn);
@@ -1722,7 +1734,7 @@ function renderPublicPoll(pollId, poll, showResults) {
       const pct = totalVotes > 0 ? Math.round(v / totalVotes * 100) : 0;
       const btn = document.createElement('div');
       btn.className = 'poll-option-btn voted' + (myVote == i ? ' my-vote' : '');
-      const letter = String.fromCharCode(65 + i);
+      const letter = (i + 1);
       btn.innerHTML = `
         <span class="option-letter">${letter}</span>
         <div style="flex:1;min-width:0">
@@ -1808,6 +1820,7 @@ function initAdmin() {
   // Suivre le live
   onValue(liveRef(), (snap) => {
     const live = snap.val();
+    currentLiveData = live; // stocker pour selectPoll
     const livePollId = live?.pollId;
 
     document.querySelectorAll('.poll-item').forEach(el => {
@@ -1863,6 +1876,19 @@ window.selectPoll = function(id) {
   document.querySelectorAll('.poll-item').forEach(el => {
     el.classList.toggle('active-poll', el.dataset.id === id);
   });
+  // Mettre à jour l'UI Lancer/Arrêter selon le live actuel
+  const _livePoll = currentLiveData?.pollId;
+  const _isLive = _livePoll === id;
+  const _statusDot = document.getElementById('live-status-dot');
+  if (_statusDot) {
+    _statusDot.textContent = _isLive ? 'En direct' : 'Hors ligne';
+    _statusDot.className = 'status-dot' + (_isLive ? ' live' : '');
+  }
+  document.getElementById('btn-launch-poll').style.display = _isLive ? 'none' : '';
+  document.getElementById('btn-stop-poll').style.display = _isLive ? '' : 'none';
+  const _modeCtrl = document.getElementById('scene-mode-controls');
+  if (_modeCtrl) _modeCtrl.style.display = _isLive ? 'flex' : 'none';
+  if (_isLive && currentLiveData?.sceneMode) updateSceneModeButtons(currentLiveData.sceneMode);
 };
 
 function renderPollDetail(id) {
@@ -1879,7 +1905,7 @@ function renderPollDetail(id) {
   resultsEl.innerHTML = opts.map((opt, i) => {
     const v = Number(votes[`opt${i}`]||0);
     const pct = total > 0 ? Math.round(v/total*100) : 0;
-    const letter = String.fromCharCode(65+i);
+    const letter = (i + 1);
     return `<div class="result-row">
       <div class="result-row-top">
         <div class="result-label"><span class="option-letter" style="width:24px;height:24px;font-size:11px">${letter}</span>${escHtml(opt)}</div>
@@ -1909,12 +1935,35 @@ window.stopLivePoll = async function() {
   showToast('Sondage arrêté ⏹');
 };
 
+window.duplicateSelectedPoll = async function() {
+  if (!selectedPollId || !polls[selectedPollId]) return;
+  const p = polls[selectedPollId];
+  const newPoll = {
+    question: p.question + ' (copie)',
+    options: [...(p.options || [])],
+    status: 'draft',
+    votes: {},
+    correctAnswer: p.correctAnswer ?? null,
+  };
+  await push(pollsRef(), newPoll);
+  showToast('Sondage dupliqué ✔');
+};
+
+window.resetSelectedPollVotes = async function() {
+  if (!selectedPollId) return;
+  const opts = polls[selectedPollId]?.options || [];
+  const emptyVotes = {};
+  opts.forEach((_, i) => { emptyVotes[`opt${i}`] = 0; });
+  await update(ref(db, `${DB_PATH}/polls/${selectedPollId}`), { votes: emptyVotes });
+  showToast('Compteurs remis à zéro ↺');
+};
+
 window.setSceneMode = async function(mode) {
   const live = (await get(liveRef())).val();
   if (!live?.pollId) { showToast('Aucun sondage en cours'); return; }
-  if (mode === 'answer') {
-    // Stinger avant de révéler la bonne réponse
-    await update(liveRef(), { sceneMode: 'answer', stingerAt: Date.now() });
+  if (mode === 'answer' || mode === 'question') {
+    // Stinger pour la bonne réponse ET pour afficher la question (transition nette)
+    await update(liveRef(), { sceneMode: mode, stingerAt: Date.now() });
   } else {
     await update(liveRef(), { sceneMode: mode });
   }
@@ -1966,12 +2015,11 @@ function buildOptionsUI(opts, correctIdx) {
 function refreshCorrectAnswerSelect(opts, correctIdx) {
   const sel = document.getElementById('modal-correct-answer');
   if (!sel) return;
-  const letters = 'ABCDEFGHIJ';
   sel.innerHTML = '<option value="">— Aucune (sondage d\'opinion) —</option>';
   (opts || []).forEach((o, i) => {
     const opt = document.createElement('option');
     opt.value = i;
-    opt.textContent = `${letters[i]}. ${o || '(vide)'}`;
+    opt.textContent = `${i + 1}. ${o || '(vide)'}`;
     if (correctIdx !== null && correctIdx !== '' && Number(correctIdx) === i) opt.selected = true;
     sel.appendChild(opt);
   });
@@ -1982,7 +2030,7 @@ function addOptionRow(val='', idx=null) {
   const row = document.createElement('div');
   row.className = 'option-row';
   const i = idx !== null ? idx : el.children.length;
-  const letter = String.fromCharCode(65 + i);
+  const letter = (i + 1);
   row.innerHTML = `<span class="option-letter" style="flex-shrink:0;width:32px;height:32px;font-size:13px">${letter}</span>
     <input type="text" class="form-input option-input" value="${escHtml(val)}" placeholder="Réponse ${letter}">
     <button class="btn-remove-option" onclick="removeOption(this)">×</button>`;
@@ -2002,7 +2050,7 @@ window.removeOption = function(btn) {
 function refreshLetters() {
   const rows = [...document.querySelectorAll('#options-builder .option-row')];
   rows.forEach((row, i) => {
-    const letter = String.fromCharCode(65 + i);
+    const letter = (i + 1);
     row.querySelector('.option-letter').textContent = letter;
     row.querySelector('.option-input').placeholder = `Réponse ${letter}`;
   });
@@ -2145,9 +2193,9 @@ function renderScene(poll, sceneMode) {
     sceneAnswer.style.display = 'flex';
     const opts = poll.options || [];
     const correctIdx = poll.correctAnswer ?? null;
-    const letters = 'ABCDEFGHIJ';
+    
     if (correctIdx !== null && opts[correctIdx] !== undefined) {
-      document.getElementById('scene-answer-letter').textContent = letters[correctIdx] || '?';
+      document.getElementById('scene-answer-letter').textContent = (correctIdx + 1);
       document.getElementById('scene-answer-text').textContent = opts[correctIdx];
       document.getElementById('scene-answer-question').textContent = poll.question || '';
     } else {
