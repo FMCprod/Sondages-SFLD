@@ -805,7 +805,7 @@ body {
   width: 100%;
   display: flex;
   gap: 24px;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: center;
   flex: 1;
   padding: 0 20px;
@@ -815,36 +815,40 @@ body {
 .scene-bar-col {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  /* 4 rangées fixes : pct | track | label | votes */
+  grid-template-rows: 64px auto auto auto;
+  grid-template-columns: 1fr;
   align-items: center;
+  justify-items: center;
   max-width: 180px;
-  height: 100%;
+  gap: 0;
 }
 
-/* Zone % — hauteur fixe en haut, toutes colonnes alignées */
+/* Zone % — rangée 1, hauteur 64px fixe, texte aligné en bas */
 .scene-bar-col .scene-bar-pct {
-  height: 64px;
-  flex-shrink: 0;
+  grid-row: 1;
+  width: 100%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 8px;
 }
 
-/* Track — hauteur fixe, toutes barres partent du même niveau */
+/* Track — rangée 2, hauteur fixe via style inline */
 .scene-bar-col .scene-bar-track {
+  grid-row: 2;
   flex-shrink: 0;
 }
 
-/* Label + votes — poussés en bas, flexibles */
+/* Label + votes — rangée 3, hauteur automatique */
 .scene-bar-col .scene-bar-label {
-  margin-top: 12px;
-  flex-shrink: 0;
+  grid-row: 3;
+  padding-top: 12px;
 }
 .scene-bar-col .scene-bar-votes {
-  margin-top: 4px;
-  flex-shrink: 0;
+  grid-row: 4;
+  padding-top: 4px;
 }
 
 /* Wrapper de la barre — hauteur fixe = zone max, sert d'ancre au bas */
