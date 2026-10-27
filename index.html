@@ -175,7 +175,7 @@ body {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #7850B4, #8CD63C);
+  background: rgba(255,255,255,0.18);
   color: #fff;
   display: flex;
   align-items: center;
@@ -1355,7 +1355,12 @@ body {
       <div class="scene-total" id="scene-total"></div>
     </div>
 
-<!-- Dialogue de pré-confirmation de vote -->
+  </div>
+
+  <footer class="scene-footer">Powered by FMC Production</footer>
+</div>
+
+<!-- Dialogue de pré-confirmation de vote — hors de toute .view pour que position:fixed fonctionne -->
 <div class="pre-vote-overlay" id="pre-vote-overlay">
   <div class="pre-vote-card">
     <div class="pre-vote-title">Confirmer votre réponse ?</div>
@@ -1365,10 +1370,6 @@ body {
       <button class="pre-vote-btn confirm" id="pre-vote-confirm">✓ Confirmer</button>
     </div>
   </div>
-</div>
-  </div>
-
-  <footer class="scene-footer">Powered by FMC Production</footer>
 </div>
 
 <!-- MODAL CRÉATION / ÉDITION -->
