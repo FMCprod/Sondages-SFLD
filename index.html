@@ -1559,7 +1559,10 @@ function initPublic() {
       if (!poll) return;
       document.getElementById('no-poll-state').style.display = 'none';
       document.getElementById('active-poll-state').style.display = 'block';
-      renderPublicPoll(live.pollId, poll, live.resultsVisible !== false);
+      // Si déjà voté → toujours afficher les résultats en live
+      const hasVoted = localStorage.getItem(`sfld_vote_${live.pollId}`) !== null;
+      const showRes = hasVoted || live.resultsVisible !== false;
+      renderPublicPoll(live.pollId, poll, showRes);
     }, { onlyOnce: false });
   });
 }
@@ -1649,15 +1652,13 @@ async function castVote(pollId, optIdx, optText) {
   await set(vRef, cur + 1);
   localStorage.setItem(`sfld_vote_${pollId}`, optIdx);
 
-  // Mise à jour immédiate du DOM sans attendre le listener Firebase
+  // Mise à jour immédiate du DOM — on force showResults=true pour le participant
+  // qui vient de voter (il a le droit de voir les résultats en live)
   const poll = polls[pollId];
   if (poll) {
     if (!poll.votes) poll.votes = {};
     poll.votes[`opt${optIdx}`] = cur + 1;
-    const liveSnap = await get(liveRef());
-    const live = liveSnap.val();
-    const showRes = live?.showResults || false;
-    renderPublicPoll(pollId, poll, showRes);
+    renderPublicPoll(pollId, poll, true); // toujours true après vote
   }
 
   showVoteConfirm(optText);
