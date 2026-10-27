@@ -822,12 +822,19 @@ body {
 /* Mode "question" : question centrée, barres invisibles */
 #scene-poll[data-scene-mode="question"] {
   justify-content: center;
+  align-items: center;
   flex: 1;
+  width: 100%;
 }
 #scene-poll[data-scene-mode="question"] .scene-question {
   font-size: 42px;
   margin-bottom: 0;
   transform: translateY(0);
+  width: 100%;
+  max-width: 800px;
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
 }
 #scene-poll[data-scene-mode="question"] .scene-bars-wrap,
 #scene-poll[data-scene-mode="question"] .scene-total {
