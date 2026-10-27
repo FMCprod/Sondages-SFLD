@@ -829,8 +829,9 @@ body {
 #scene-poll[data-scene-mode="question"] {
   justify-content: center;
   align-items: center;
-  flex: 1;
-  width: 100%;
+  flex: none;
+  width: auto;
+  max-width: 800px;
 }
 #scene-poll[data-scene-mode="question"] .scene-question {
   font-size: 42px;
@@ -2121,6 +2122,8 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // ─── VUE SCÈNE ───
+let isStingerPlaying = false;
+
 function initScene() {
   let prevPollId = null;
   let prevStingerAt = null;
@@ -2150,7 +2153,8 @@ function initScene() {
       pollUnsubscribe = onValue(ref(db, `${DB_PATH}/polls/${pollId}`), (pSnap) => {
         const poll = pSnap.val();
         if (!poll) return;
-        // Le mode actuel est dans live — on relit via closure
+        // Ne pas render si un stinger est en cours
+        if (isStingerPlaying) return;
         const currentLive = snap.val();
         renderScene(poll, currentLive?.sceneMode || 'question');
       });
@@ -2162,7 +2166,11 @@ function initScene() {
       get(pollRef2).then(pSnap => {
         const poll = pSnap.val();
         if (!poll) return;
-        playStinger(() => renderScene(poll, sceneMode));
+        isStingerPlaying = true;
+        playStinger(() => {
+          renderScene(poll, sceneMode);
+          isStingerPlaying = false;
+        });
       });
     } else if (pollId === prevPollId) {
       // Même sondage, mode changé → render direct
