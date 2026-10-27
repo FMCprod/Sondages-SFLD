@@ -1471,6 +1471,8 @@ let selectedPollId = null;
 let isAdmin = false;
 let resultsVisible = true;  // Contrôle affichage résultats sur scène
 let _editingPollId = null;
+let currentPublicPoll = null;  // poll courant côté participant
+let currentPublicPollId = null;
 
 // ─── REFS FIREBASE ───
 const pollsRef = () => ref(db, `${DB_PATH}/polls`);
@@ -1557,6 +1559,9 @@ function initPublic() {
     onValue(ref(db, `${DB_PATH}/polls/${live.pollId}`), (pSnap) => {
       const poll = pSnap.val();
       if (!poll) return;
+      // Stocker pour usage dans castVote
+      currentPublicPoll = poll;
+      currentPublicPollId = live.pollId;
       document.getElementById('no-poll-state').style.display = 'none';
       document.getElementById('active-poll-state').style.display = 'block';
       // Si déjà voté → toujours afficher les résultats en live
@@ -1652,12 +1657,12 @@ async function castVote(pollId, optIdx, optText) {
   await set(vRef, cur + 1);
   localStorage.setItem(`sfld_vote_${pollId}`, optIdx);
 
-  // Mise à jour immédiate du DOM — on force showResults=true pour le participant
-  // qui vient de voter (il a le droit de voir les résultats en live)
-  const poll = polls[pollId];
+  // Mise à jour immédiate du DOM avec le poll courant (stocké par initPublic)
+  const poll = currentPublicPoll || polls[pollId];
   if (poll) {
     if (!poll.votes) poll.votes = {};
     poll.votes[`opt${optIdx}`] = cur + 1;
+    currentPublicPoll = poll; // mettre à jour le cache local
     renderPublicPoll(pollId, poll, true); // toujours true après vote
   }
 
@@ -2048,8 +2053,10 @@ function _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH_arg
     if (fill && track) {
       const maxH = barMaxH_arg || 400;
       const minH = 16;
-      const heightPx = showResults && maxVotes > 0
-        ? Math.max(minH, Math.round(v / maxVotes * maxH))
+      // Hauteur basée sur le % réel du total (pas sur maxVotes)
+      // → 50% des votes = 50% de la hauteur max
+      const heightPx = showResults && total > 0
+        ? Math.max(minH, Math.round(pct / 100 * maxH))
         : minH;
       fill.style.height = heightPx + 'px';
       fill.style.setProperty('--bar-max-h', maxH + 'px');
