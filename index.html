@@ -8,16 +8,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
 :root {
-  --bg: #F4F6FA;
-  --surface: #FFFFFF;
-  --surface2: #EDF0F7;
-  --navy: #1B3A6B;
-  --violet: #6B3FA0;
-  --grad: linear-gradient(135deg, #1B3A6B 0%, #6B3FA0 100%);
-  --text: #1A1A2E;
-  --muted: #6B7280;
-  --border: #D1D5DB;
-  --green: #10B981;
+  /* Palette SFLD */
+  --bg: #0E0520;
+  --surface: rgba(255,255,255,0.05);
+  --surface2: rgba(255,255,255,0.08);
+  --surface-hover: rgba(120,80,180,0.3);
+  --navy: #ffffff;
+  --violet: #7850B4;
+  --violet-light: #A070D4;
+  --green: #8CD63C;
+  --grad: linear-gradient(135deg, #7850B4 0%, #8CD63C 100%);
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.45);
+  --border: rgba(255,255,255,0.12);
   --red: #EF4444;
   --yellow: #F59E0B;
 }
@@ -43,80 +46,83 @@ body {
   justify-content: center;
   padding: 24px 16px;
   background: var(--bg);
+  /* Halo ambiance */
+  background-image:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(120,80,180,0.35) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 100%, rgba(140,214,60,0.12) 0%, transparent 60%);
 }
 
 .public-card {
-  background: var(--surface);
-  border-radius: 20px;
-  padding: 40px 32px;
-  max-width: 520px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 24px;
+  padding: 36px 28px;
+  max-width: 480px;
   width: 100%;
-  box-shadow: 0 4px 32px rgba(27,58,107,0.10);
+  box-shadow: 0 8px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(120,80,180,0.15);
+  backdrop-filter: blur(12px);
 }
 
 .public-logo {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   cursor: pointer;
   user-select: none;
 }
 
 .public-logo img {
-  height: 80px;
+  height: 72px;
   object-fit: contain;
 }
 
 .poll-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
-  background: var(--grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-top: 12px;
+  color: var(--green);
+  margin-top: 10px;
+  opacity: 0.8;
 }
 
 .separator {
-  height: 2px;
-  background: var(--grad);
-  border-radius: 2px;
-  margin-bottom: 28px;
-  opacity: 0.3;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(120,80,180,0.6), rgba(140,214,60,0.4), transparent);
+  margin-bottom: 24px;
 }
 
 /* État "aucun sondage" */
 #no-poll-state {
   text-align: center;
-  padding: 40px 0;
+  padding: 32px 0;
 }
 #no-poll-state .waiting-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
+  font-size: 44px;
+  margin-bottom: 14px;
+  opacity: 0.4;
 }
 #no-poll-state h2 {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--navy);
+  color: rgba(255,255,255,0.7);
   margin-bottom: 8px;
 }
 #no-poll-state p {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 /* État sondage actif */
 #active-poll-state { display: none; }
 
 .poll-question {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
-  color: var(--navy);
-  margin-bottom: 24px;
-  line-height: 1.4;
+  color: #fff;
+  margin-bottom: 20px;
+  line-height: 1.45;
   text-align: center;
 }
 
@@ -130,69 +136,71 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 16px 20px;
-  background: var(--surface2);
-  border: 2px solid var(--border);
-  border-radius: 12px;
+  padding: 15px 18px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 14px;
   cursor: pointer;
   font-size: 15px;
   font-weight: 500;
-  color: var(--text);
+  color: #fff;
   text-align: left;
   transition: all 0.2s;
   width: 100%;
 }
 
 .poll-option-btn:hover {
-  border-color: var(--violet);
-  background: #f3eeff;
-  color: var(--violet);
+  border-color: rgba(120,80,180,0.6);
+  background: rgba(120,80,180,0.18);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(120,80,180,0.2);
 }
 
 .poll-option-btn.voted {
-  border-color: var(--navy);
-  background: #e8eef8;
-  color: var(--navy);
+  border-color: rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: rgba(255,255,255,0.6);
   cursor: default;
 }
 
 .poll-option-btn.voted.my-vote {
-  border-color: var(--violet);
-  background: linear-gradient(135deg, #eef3fb, #f3eeff);
-  color: var(--violet);
+  border-color: rgba(140,214,60,0.5);
+  background: rgba(140,214,60,0.08);
+  color: #8CD63C;
   font-weight: 700;
+  box-shadow: 0 0 20px rgba(140,214,60,0.1);
 }
 
 .option-letter {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
-  background: var(--grad);
+  background: linear-gradient(135deg, #7850B4, #8CD63C);
   color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 800;
   flex-shrink: 0;
 }
 
 /* Résultats participant */
 .option-bar-wrap {
   margin-top: 8px;
-  height: 6px;
-  background: var(--border);
-  border-radius: 3px;
+  height: 4px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 2px;
   overflow: hidden;
 }
 .option-bar-fill {
   height: 100%;
-  background: var(--grad);
-  border-radius: 3px;
+  background: linear-gradient(90deg, #7850B4, #8CD63C);
+  border-radius: 2px;
   transition: width 0.6s ease;
 }
 .option-pct {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
   margin-top: 4px;
   text-align: right;
@@ -200,20 +208,20 @@ body {
 
 .poll-voted-msg {
   text-align: center;
-  margin-top: 20px;
-  font-size: 14px;
+  margin-top: 16px;
+  font-size: 13px;
   color: var(--muted);
 }
 .poll-voted-msg strong {
-  color: var(--violet);
+  color: #8CD63C;
 }
 
 .public-footer {
   text-align: center;
-  margin-top: 16px;
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  color: var(--muted);
+  margin-top: 14px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.2);
   text-transform: uppercase;
 }
 
@@ -814,55 +822,47 @@ body {
   justify-content: flex-end;
 }
 
-/* Colonne barre : position relative pour empiler le dégradé et le masque */
+/* Wrapper de la barre — hauteur fixe = zone max, sert d'ancre au bas */
 .scene-bar-track {
   width: 44px;
   flex-shrink: 0;
   position: relative;
-  /* hauteur fixe = toute la zone dispo */
   height: var(--bar-max-h, 400px);
-  border-radius: 22px;
+  display: flex;
+  align-items: flex-end; /* la barre colle au bas */
 }
 
-/* Dégradé en couche de fond — toujours présent, toute hauteur */
-.scene-bar-track::before {
-  content: '';
-  position: absolute;
-  inset: 0;
+/* La barre elle-même : grandit depuis le bas */
+/* Le dégradé est appliqué sur la PLEINE hauteur max via background-size */
+/* → violet quand la barre est courte, vert dévoilé quand elle grandit */
+.scene-bar-fill {
+  width: 44px;
   border-radius: 22px;
+  flex-shrink: 0;
+  /* hauteur animée par JS */
+  height: 20px;
+  transition: height 1.1s cubic-bezier(0.34,1.18,0.64,1);
+  /* dégradé ancré au BAS de la zone max — background-position bottom */
   background: linear-gradient(to top,
     #7850B4 0%,
     #9A60C8 30%,
     #C8DC3C 70%,
     #8CD63C 100%
   );
+  background-size: 100% var(--bar-max-h, 400px);
+  background-position: bottom center;
+  background-repeat: no-repeat;
+  box-shadow: 0 -4px 24px rgba(140,214,60,0.3);
+  position: relative;
 }
-
-/* Masque violet par-dessus — s'étend depuis le HAUT, sa hauteur diminue quand la barre monte */
-/* Quand le masque rétrécit par le haut, le dégradé dessous devient visible */
-.scene-bar-fill {
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  border-radius: 22px;
-  background: #7850B4;
-  /* hauteur animée par JS — commence à 100% (tout masqué) et diminue */
-  height: 100%;
-  transition: height 1.1s cubic-bezier(0.34,1.18,0.64,1);
-}
-
-/* Reflet brillant au sommet de la zone visible (dégradé découvert) */
-.scene-bar-track::after {
+.scene-bar-fill::after {
   content: '';
   position: absolute;
-  left: 0; right: 0;
-  bottom: 0;
-  /* hauteur = zone visible, définie par JS */
-  height: var(--fill-visible-h, 0px);
-  border-radius: 22px;
-  background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 60%);
+  top: 0; left: 0; right: 0;
+  height: 40%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.16) 0%, transparent 100%);
+  border-radius: 22px 22px 0 0;
   pointer-events: none;
-  transition: height 1.1s cubic-bezier(0.34,1.18,0.64,1);
-  box-shadow: 0 -6px 32px rgba(140,214,60,0.45);
 }
 
 .scene-bar-pct {
@@ -918,9 +918,10 @@ body {
   flex-shrink: 0;
 }
 
-/* État masqué — masque couvre tout, rail violet uni */
+/* État masqué — toutes les barres au minimum */
 #scene-poll.hidden-results .scene-bar-fill {
-  height: 100% !important;
+  height: 16px !important;
+  box-shadow: none !important;
 }
 #scene-poll.hidden-results .scene-bar-pct { opacity: 0; }
 #scene-poll.hidden-results .scene-bar-votes { opacity: 0; }
@@ -1144,9 +1145,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(27,58,107,0.55);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  background: rgba(14,5,32,0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.3s ease;
@@ -1156,15 +1157,16 @@ body {
   pointer-events: auto;
 }
 .vote-confirm-card {
-  background: #fff;
+  background: linear-gradient(135deg, #1A0A3A 0%, #2D1260 100%);
+  border: 1px solid rgba(120,80,180,0.35);
   border-radius: 24px;
-  padding: 40px 48px;
+  padding: 36px 40px;
   text-align: center;
-  box-shadow: 0 24px 80px rgba(27,58,107,0.25);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
   transform: scale(0.85) translateY(20px);
   transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
   opacity: 0;
-  max-width: 400px;
+  max-width: 380px;
   width: 90%;
 }
 .vote-confirm-overlay.show .vote-confirm-card {
@@ -1172,14 +1174,15 @@ body {
   opacity: 1;
 }
 .vote-confirm-checkmark {
-  width: 72px; height: 72px;
+  width: 68px; height: 68px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1B3A6B, #6B3FA0);
+  background: linear-gradient(135deg, #7850B4, #8CD63C);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto 20px;
-  font-size: 32px;
+  margin: 0 auto 18px;
+  font-size: 28px;
+  color: #fff;
   animation: bounceIn 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.15s both;
 }
 @keyframes bounceIn {
@@ -1187,24 +1190,27 @@ body {
   100% { transform: scale(1); }
 }
 .vote-confirm-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
-  color: var(--navy);
+  color: #fff;
   margin-bottom: 8px;
 }
 .vote-confirm-sub {
-  font-size: 15px;
-  color: var(--muted);
+  font-size: 13px;
+  color: rgba(255,255,255,0.5);
   margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
 }
 .vote-confirm-answer {
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 700;
-  color: var(--violet);
-  background: linear-gradient(135deg, #eef3fb, #f3eeff);
+  color: #8CD63C;
+  background: rgba(140,214,60,0.08);
+  border: 1px solid rgba(140,214,60,0.2);
   border-radius: 10px;
   padding: 10px 16px;
-  margin: 12px 0 0;
+  margin: 10px 0 0;
   display: inline-block;
 }
 
@@ -1922,7 +1928,7 @@ function renderScene(poll, showResults) {
       <div class="scene-bar-col">
         <div class="scene-bar-pct" id="sbpct-${i}"></div>
         <div class="scene-bar-track" id="sbtrack-${i}" style="height:${barMaxH}px; --bar-max-h:${barMaxH}px">
-          <div class="scene-bar-fill" id="sbfill-${i}" style="height:100%"></div>
+          <div class="scene-bar-fill" id="sbfill-${i}" style="height:16px; --bar-max-h:${barMaxH}px"></div>
         </div>
         <div class="scene-bar-label">${escHtml(opt)}</div>
         <div class="scene-bar-votes" id="sbvotes-${i}"></div>
@@ -1974,18 +1980,18 @@ function _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH_arg
     const pctEl = document.getElementById(`sbpct-${i}`);
     const votesEl = document.getElementById(`sbvotes-${i}`);
 
-    // fill = masque violet qui couvre le haut du track
-    // quand v/maxVotes = 100% → masque height = 0% (tout le dégradé visible)
-    // quand v/maxVotes = 0%  → masque height = 100% (tout masqué, rail violet uni)
+    // La barre grandit en px depuis le bas — dégradé ancré en bas via background-position
+    // À 0 vote → barre très courte → on ne voit que le violet du bas du dégradé
+    // À maxVotes → barre pleine hauteur → le vert du haut du dégradé est révélé
     if (fill && track) {
-      const barMaxH = barMaxH_arg || track.offsetHeight || 400;
-      const visiblePct = showResults && maxVotes > 0
-        ? Math.min(96, Math.round(v / maxVotes * 96))
-        : 0;
-      const maskPct = 100 - visiblePct; // hauteur du masque violet (depuis le haut)
-      fill.style.height = maskPct + '%';
-      const visiblePx = Math.round(barMaxH * visiblePct / 100);
-      track.style.setProperty('--fill-visible-h', visiblePx + 'px');
+      const maxH = barMaxH_arg || 400;
+      const minH = 16;
+      const heightPx = showResults && maxVotes > 0
+        ? Math.max(minH, Math.round(v / maxVotes * maxH))
+        : minH;
+      fill.style.height = heightPx + 'px';
+      fill.style.setProperty('--bar-max-h', maxH + 'px');
+      track.style.setProperty('--bar-max-h', maxH + 'px');
     }
     if (pctEl) {
       pctEl.textContent = showResults && total > 0 ? pct + '%' : '';
