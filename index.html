@@ -734,7 +734,7 @@ body {
   justify-content: space-between;
   background: rgba(0,0,0,0.25);
   position: relative;
-  z-index: 2;
+  z-index: 10;
 }
 
 .scene-logo {
@@ -763,16 +763,7 @@ body {
   min-height: 0;
   overflow: hidden;
 }
-/* En mode résultats, le contenu s'aligne en haut */
-.scene-content:has(#scene-poll[data-scene-mode="results"]) {
-  justify-content: flex-start;
-}
-/* Centrage garanti en mode question seule et bonne réponse */
-.scene-content:has(#scene-poll[data-scene-mode="question"]),
-.scene-content:has(#scene-poll[data-scene-mode="answer"]) {
-  justify-content: center;
-  align-items: center;
-}
+/* .scene-content reste toujours flex-start — le centrage est géré par margin:auto */
 
 /* Attente scène */
 #scene-waiting {
@@ -796,8 +787,11 @@ body {
   max-width: 960px;
   flex-direction: column;
   align-items: center;
+  justify-content: flex-start;
   flex: 1;
   min-height: 0;
+  position: relative;
+  overflow: visible; /* les barres peuvent dépasser #scene-poll mais pas .scene-content */
 }
 
 .scene-question {
@@ -811,128 +805,181 @@ body {
   text-wrap: balance;
   flex-shrink: 0;
   width: 100%;
-  margin-bottom: 24px;
-  /* Transitions TOUJOURS présentes — ne jamais les retirer */
+  /* Position dans le flux — pas de margin:auto par défaut */
+  margin-top: 0;
+  margin-bottom: 0;
+  /* Transition sur transform et font-size */
   transition:
-    font-size 0.6s cubic-bezier(0.76,0,0.24,1),
-    margin-bottom 0.6s cubic-bezier(0.76,0,0.24,1),
-    transform 0.6s cubic-bezier(0.76,0,0.24,1);
+    font-size 0.65s cubic-bezier(0.76,0,0.24,1),
+    transform 0.65s cubic-bezier(0.76,0,0.24,1);
 }
 
-/* Transitions permanentes sur les éléments (non liées aux modes) */
+/* Transitions permanentes sur les barres */
+.scene-bars-wrap,
 .scene-total {
-  transition: opacity 0.5s ease 0.1s, transform 0.6s cubic-bezier(0.34,1.18,0.64,1) 0.1s;
+  transition:
+    opacity 0.5s ease,
+    transform 0.55s cubic-bezier(0.34,1.18,0.64,1);
 }
 
-/* ─── MODES SCÈNE — via data-scene-mode (jamais de classList.remove) ─── */
+/* ─── MODES SCÈNE — via data-scene-mode ─── */
 
-/* Mode "question" : question centrée, barres invisibles */
+/* Mode "question" : question centrée via flex sur #scene-poll */
 #scene-poll[data-scene-mode="question"] {
-  justify-content: center;
-  align-items: center;
-  flex: none;
-  width: 100%;
   max-width: 800px;
-  margin: 0 auto;
+  justify-content: center;
 }
 #scene-poll[data-scene-mode="question"] .scene-question {
   font-size: 42px;
-  margin-bottom: 0;
   transform: translateY(0);
-  width: 100%;
-  max-width: 800px;
-  text-align: center;
-  margin-left: auto;
-  margin-right: auto;
 }
+/* Barres hors du flux en mode question */
 #scene-poll[data-scene-mode="question"] .scene-bars-wrap,
 #scene-poll[data-scene-mode="question"] .scene-total {
   opacity: 0;
   pointer-events: none;
-  transform: translateY(20px);
+  visibility: hidden;
+  position: absolute;
+  width: 0; height: 0; overflow: hidden;
 }
 
-/* Mode "résultats" : question en haut, barres en fondu */
+/* Mode "résultats" : question en haut, barres visibles */
 #scene-poll[data-scene-mode="results"] {
+  max-width: 960px;
   justify-content: flex-start;
-  flex: 1;
 }
 #scene-poll[data-scene-mode="results"] .scene-question {
   font-size: 34px;
+  transform: translateY(0);
   margin-bottom: 24px;
-  transform: translateY(0);
 }
+/* Barres dans le flux en mode résultats */
 #scene-poll[data-scene-mode="results"] .scene-bars-wrap {
+  position: static;
+  visibility: visible;
+  flex: 1;
+  width: 100%;
   opacity: 1;
-  pointer-events: auto;
   transform: translateY(0);
+  pointer-events: auto;
 }
 #scene-poll[data-scene-mode="results"] .scene-total {
+  position: static;
+  visibility: visible;
+  flex: 0 0 auto;
   opacity: 1;
   transform: translateY(0);
 }
+/* Pendant l'animation d'entrée : barres hors du flux
+   ET question décalée vers le bas (position initiale = centrée) */
+#scene-poll[data-scene-mode="results"].bars-entering .scene-question {
+  font-size: 42px; /* garder la grande taille pendant l'animation */
+  transform: translateY(var(--question-offset, 0px));
+  transition: none; /* sans transition : état initial figé */
+}
+#scene-poll[data-scene-mode="results"].bars-entering .scene-bars-wrap,
+#scene-poll[data-scene-mode="results"].bars-entering .scene-total {
+  position: absolute;
+  visibility: hidden;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
 
-/* Barres verticales */
+/* Barres verticales — layout en 2 rangées :
+   rangée 1 (flex:1) : zone pct + tracks, toutes à la même hauteur via le parent
+   rangée 2 (auto)   : labels + votes sous les tracks */
 .scene-bars-wrap {
   width: 100%;
   display: flex;
-  gap: 24px;
-  align-items: flex-start;
-  justify-content: center;
+  flex-direction: column;
   flex: 1;
-  padding: 0 20px;
   min-height: 0;
+  padding: 0 20px;
+  gap: 0;
   /* Transition permanente — ne jamais la retirer via classList */
   transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.34,1.18,0.64,1);
 }
 
+/* Rangée 1 : les tracks (pct + barre) — hauteur = tout l'espace disponible */
+.scene-bars-tracks-row {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 24px;
+  justify-content: center;
+  align-items: stretch; /* chaque colonne prend toute la hauteur */
+}
+
+/* Rangée 2 : les labels + votes */
+.scene-bars-labels-row {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 24px;
+  justify-content: center;
+}
+
+/* Colonne dans la rangée tracks : flex vertical, track ancrée en bas */
 .scene-bar-col {
   flex: 1;
   min-width: 0;
-  display: grid;
-  /* 4 rangées fixes : pct | track | label | votes */
-  grid-template-rows: 64px auto auto auto;
-  grid-template-columns: 1fr;
-  align-items: center;
-  justify-items: center;
   max-width: 180px;
-  gap: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end; /* tout en bas */
 }
 
-/* Zone % — rangée 1, hauteur 64px fixe, texte aligné en bas */
+/* Zone % — au-dessus de la track, collée à elle */
 .scene-bar-col .scene-bar-pct {
-  grid-row: 1;
+  flex: 0 0 auto;
   width: 100%;
   display: flex;
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 8px;
+  min-height: 40px;
 }
 
-/* Track — rangée 2, hauteur fixe via style inline */
+/* Track — hauteur = 100% de l'espace restant dans la colonne */
 .scene-bar-col .scene-bar-track {
-  grid-row: 2;
+  flex: 1;
+  min-height: 0;
+  width: 44px;
   flex-shrink: 0;
 }
 
-/* Label + votes — rangée 3, hauteur automatique */
-.scene-bar-col .scene-bar-label {
-  grid-row: 3;
-  padding-top: 12px;
+/* Colonne dans la rangée labels */
+.scene-bar-label-col {
+  flex: 1;
+  min-width: 0;
+  max-width: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
 }
-.scene-bar-col .scene-bar-votes {
-  grid-row: 4;
+
+/* Label + votes */
+.scene-bar-col .scene-bar-label,
+.scene-bar-label-col .scene-bar-label {
+  padding-top: 12px;
+  text-align: center;
+}
+.scene-bar-col .scene-bar-votes,
+.scene-bar-label-col .scene-bar-votes {
   padding-top: 4px;
 }
 
-/* Wrapper de la barre — hauteur fixe = zone max, sert d'ancre au bas */
+/* Wrapper de la barre — hauteur = 100% du parent, barre ancrée en bas */
 .scene-bar-track {
   width: 44px;
-  flex-shrink: 0;
   position: relative;
-  height: var(--bar-max-h, 400px);
+  height: 100%;
   display: flex;
-  align-items: flex-end; /* la barre colle au bas */
+  align-items: flex-end;
 }
 
 /* La barre elle-même : grandit depuis le bas */
@@ -1050,9 +1097,8 @@ body {
 /* Vue bonne réponse scène */
 #scene-answer {
   animation: fadeScaleIn 0.5s cubic-bezier(0.34,1.18,0.64,1);
-  margin: 0 auto;
-  /* Centrage garanti dans le parent flex-column */
-  align-self: center;
+  flex: 0 0 auto;
+  margin: auto;
 }
 @keyframes fadeScaleIn {
   from { opacity: 0; transform: scale(0.85); }
@@ -1061,9 +1107,9 @@ body {
 
 /* Stinger */
 #stinger {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 3;
   pointer-events: none;
   clip-path: inset(0 100% 0 0);
   background: linear-gradient(105deg,
@@ -1147,11 +1193,14 @@ body {
   .admin-body { flex-direction: column; }
   .polls-sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); }
   .scene-question { font-size: 22px; }
-  .scene-bars-wrap { gap: 10px; padding: 0 8px; }
+  .scene-bars-wrap { padding: 0 8px; }
+  .scene-bars-tracks-row { gap: 10px; }
+  .scene-bars-labels-row { gap: 10px; }
   .scene-bar-track { width: 30px; border-radius: 15px; }
-  .scene-bar-fill { border-radius: 15px; }
+  .scene-bar-fill { border-radius: 15px; width: 30px; }
   .scene-bar-pct { font-size: 20px !important; min-height: 26px; }
   .scene-bar-col { max-width: 90px; }
+  .scene-bar-label-col { max-width: 90px; }
   .admin-header { padding: 12px 16px; }
   .admin-main { padding: 16px; }
   .scene-content { padding: 16px 12px 20px; }
@@ -1490,8 +1539,8 @@ body {
     <div class="scene-badge">Sondage en direct</div>
   </header>
 
+  <div id="stinger"></div>
   <div class="scene-content">
-    <div id="stinger"></div>
     <div id="scene-waiting">
       <div class="scene-wait-icon">🗳️</div>
       <p>En attente du prochain sondage…</p>
@@ -1862,7 +1911,8 @@ function renderPollsList() {
     const statusBadge = p.status === 'live' ? '<span class="badge badge-live">🔴 Live</span>' :
                         p.status === 'closed' ? '<span class="badge badge-closed">Terminé</span>' :
                         '<span class="badge badge-draft">Brouillon</span>';
-    return `<div class="poll-item${selectedPollId===id?' active-poll':''}${p.status==='live'?' live-now':''}" data-id="${id}" onclick="selectPoll('${id}')">
+    const isReallyLive = currentLiveData?.pollId === id;
+    return `<div class="poll-item${selectedPollId===id?' active-poll':''}${isReallyLive?' live-now':''}" data-id="${id}" onclick="selectPoll('${id}')">
       <div class="poll-item-title">${escHtml(p.question||'—')}</div>
       <div class="poll-item-meta">${statusBadge}<span class="badge-votes">${votes} vote${votes>1?'s':''}</span></div>
     </div>`;
@@ -2152,14 +2202,16 @@ function initScene() {
     // Réabonner au poll si changement de pollId
     if (pollId !== prevPollId) {
       if (pollUnsubscribe) { pollUnsubscribe(); pollUnsubscribe = null; }
-      pollUnsubscribe = onValue(ref(db, `${DB_PATH}/polls/${pollId}`), (pSnap) => {
-        const poll = pSnap.val();
-        if (!poll) return;
-        // Ne pas render si un stinger est en cours
-        if (isStingerPlaying) return;
-        const currentLive = snap.val();
-        renderScene(poll, currentLive?.sceneMode || 'question');
-      });
+      // N'abonner qu'après le stinger si un stinger doit jouer
+      if (!needStinger) {
+        pollUnsubscribe = onValue(ref(db, `${DB_PATH}/polls/${pollId}`), (pSnap) => {
+          const poll = pSnap.val();
+          if (!poll) return;
+          if (isStingerPlaying) return;
+          const currentLive = snap.val();
+          renderScene(poll, currentLive?.sceneMode || 'question');
+        });
+      }
     }
 
     if (needStinger) {
@@ -2172,6 +2224,15 @@ function initScene() {
         playStinger(() => {
           renderScene(poll, sceneMode);
           isStingerPlaying = false;
+          // Abonner aux mises à jour live du nouveau poll maintenant que le stinger est passé
+          if (!pollUnsubscribe) {
+            pollUnsubscribe = onValue(ref(db, `${DB_PATH}/polls/${pollId}`), (pSnap2) => {
+              const poll2 = pSnap2.val();
+              if (!poll2 || isStingerPlaying) return;
+              const currentLive2 = snap.val();
+              renderScene(poll2, currentLive2?.sceneMode || 'question');
+            });
+          }
         });
       });
     } else if (pollId === prevPollId) {
@@ -2219,10 +2280,28 @@ function renderScene(poll, sceneMode) {
 
   // Vue question ou résultats
   sceneAnswer.style.display = 'none';
-  scenePoll.style.display = 'flex';
 
-  // Appliquer le mode via data-attribute — les transitions CSS restent toujours actives
-  scenePoll.dataset.sceneMode = mode;
+  // Récupérer le mode précédent AVANT de changer display
+  const prevMode = scenePoll.dataset.sceneMode || 'question';
+  const wasHidden = (scenePoll.style.display !== 'flex');
+
+  // Mettre en display:flex si nécessaire
+  if (wasHidden) scenePoll.style.display = 'flex';
+
+  // Appliquer le mode — doTransition mesure avant le changement puis anime
+  const applyMode = () => {
+    // doTransition doit mesurer la position AVANT que data-scene-mode change
+    doTransition(scenePoll, mode, prevMode, () => {
+      scenePoll.dataset.sceneMode = mode;
+    });
+  };
+
+  if (wasHidden) {
+    // Vient de display:none : attendre 2 frames pour que le navigateur enregistre l'état initial
+    requestAnimationFrame(() => requestAnimationFrame(applyMode));
+  } else {
+    applyMode();
+  }
 
   const showResults = (mode === 'results');
   const opts = poll.options || [];
@@ -2234,36 +2313,34 @@ function renderScene(poll, sceneMode) {
   const maxVotes = Math.max(1, ...opts.map((_,i) => Number(votes[`opt${i}`]||0)));
   const barsEl = document.getElementById('scene-bars');
 
-  // DOM diff : on réutilise les colonnes existantes pour garder l'animation continue
   const existingCols = barsEl.querySelectorAll('.scene-bar-col');
   const needRebuild = existingCols.length !== opts.length;
 
-  // La hauteur max des barres = hauteur de la zone disponible
-  // On laisse le CSS Grid décider, puis on lit la hauteur réelle du track
-  const barMaxH = Math.round(window.innerHeight * 0.54);
-  barsEl.style.setProperty('--bar-max-h', barMaxH + 'px');
-
+  // Layout en 2 rangées : tracks-row (flex:1, hauteur automatique) + labels-row (auto)
+  // Plus besoin de calculer --bar-max-h en JS : les tracks prennent 100% de la hauteur disponible
   if (needRebuild) {
-    barsEl.innerHTML = opts.map((opt, i) => `
-      <div class="scene-bar-col">
-        <div class="scene-bar-pct" id="sbpct-${i}"></div>
-        <div class="scene-bar-track" id="sbtrack-${i}" style="height:${barMaxH}px; --bar-max-h:${barMaxH}px">
-          <div class="scene-bar-fill" id="sbfill-${i}" style="height:16px; --bar-max-h:${barMaxH}px"></div>
-        </div>
-        <div class="scene-bar-label" id="sblabel-${i}">${escHtml(opt)}</div>
-        <div class="scene-bar-votes" id="sbvotes-${i}"></div>
-      </div>`).join('');
-    // 2 frames de délai : 1 pour le layout, 1 pour lire la hauteur réelle
+    barsEl.innerHTML =
+      `<div class="scene-bars-tracks-row">` +
+      opts.map((opt, i) => `
+        <div class="scene-bar-col" id="sbcol-${i}">
+          <div class="scene-bar-pct" id="sbpct-${i}"></div>
+          <div class="scene-bar-track" id="sbtrack-${i}">
+            <div class="scene-bar-fill" id="sbfill-${i}" style="height:16px"></div>
+          </div>
+        </div>`).join('') +
+      `</div>` +
+      `<div class="scene-bars-labels-row">` +
+      opts.map((opt, i) => `
+        <div class="scene-bar-label-col">
+          <div class="scene-bar-label" id="sblabel-${i}">${escHtml(opt)}</div>
+          <div class="scene-bar-votes" id="sbvotes-${i}"></div>
+        </div>`).join('') +
+      `</div>`;
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      // Lire la hauteur réelle du premier track pour calibrer toutes les barres
-      const firstTrack = document.getElementById('sbtrack-0');
-      const realMaxH = firstTrack ? firstTrack.getBoundingClientRect().height : barMaxH;
-      _updateSceneBars(opts, votes, total, maxVotes, showResults, realMaxH);
+      _updateSceneBars(opts, votes, total, maxVotes, showResults, null);
     }));
   } else {
-    const firstTrack = document.getElementById('sbtrack-0');
-    const realMaxH = firstTrack ? firstTrack.getBoundingClientRect().height : barMaxH;
-    _updateSceneBars(opts, votes, total, maxVotes, showResults, realMaxH);
+    _updateSceneBars(opts, votes, total, maxVotes, showResults, null);
   }
 
   const totalEl = document.getElementById('scene-total');
@@ -2271,6 +2348,62 @@ function renderScene(poll, sceneMode) {
     totalEl.textContent = `Nombre total de votes : ${total}`;
   } else {
     totalEl.textContent = '';
+  }
+}
+
+function doTransition(scenePoll, mode, prevMode, applyDataMode) {
+  if (mode === 'results' && prevMode === 'question') {
+    // Mesurer la position AVANT que data-scene-mode change (question encore centrée)
+    const questionEl = scenePoll.querySelector('.scene-question');
+    const pollRect = scenePoll.getBoundingClientRect();
+    const qRect = questionEl ? questionEl.getBoundingClientRect() : null;
+
+    if (questionEl && qRect && pollRect.height > 0) {
+      // Centre Y actuel dans scene-poll (état question = centrée)
+      const currentCenterY = qRect.top - pollRect.top + qRect.height / 2;
+      // Position cible en mode results : en haut → centre = qRect.height/2
+      const targetCenterY = qRect.height / 2;
+      const offset = currentCenterY - targetCenterY;
+
+      // 1. Préparer l'état initial : question à sa position centrée via translateY, sans transition
+      scenePoll.style.setProperty('--question-offset', offset + 'px');
+      questionEl.style.transition = 'none';
+      scenePoll.classList.add('bars-entering');
+
+      // 2. Appliquer data-scene-mode="results" (les barres arrivent dans le DOM mais restent hors flux)
+      if (applyDataMode) applyDataMode();
+
+      // 3. Deux frames : activer la transition → CSS anime transform de offset→0
+      clearTimeout(scenePoll._barsTimer);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        questionEl.style.transition = '';
+        // La question glisse vers le haut pendant 680ms
+        scenePoll._barsTimer = setTimeout(() => {
+          // Animation terminée : afficher les barres
+          scenePoll.classList.remove('bars-entering');
+          scenePoll.style.removeProperty('--question-offset');
+          // Les tracks sont flex:1 — leur hauteur est gérée par CSS, pas par JS
+          // Mettre à jour --bar-max-h sur chaque fill pour synchroniser le dégradé
+          scenePoll.querySelectorAll('.scene-bar-track').forEach((track, i) => {
+            const fill = track.querySelector('.scene-bar-fill');
+            if (fill) fill.style.setProperty('--bar-max-h', (track.getBoundingClientRect().height || 300) + 'px');
+          });
+        }, 680);
+      }));
+    } else {
+      // Fallback sans mesure
+      if (applyDataMode) applyDataMode();
+      scenePoll.classList.add('bars-entering');
+      clearTimeout(scenePoll._barsTimer);
+      scenePoll._barsTimer = setTimeout(() => scenePoll.classList.remove('bars-entering'), 680);
+    }
+  } else {
+    // Passage direct — pas d'animation
+    if (applyDataMode) applyDataMode();
+    scenePoll.classList.remove('bars-entering');
+    scenePoll.style.removeProperty('--question-offset');
+    const questionEl = scenePoll.querySelector('.scene-question');
+    if (questionEl) questionEl.style.transition = '';
   }
 }
 
@@ -2311,16 +2444,17 @@ function _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH_arg
     // À 0 vote → barre très courte → on ne voit que le violet du bas du dégradé
     // À maxVotes → barre pleine hauteur → le vert du haut du dégradé est révélé
     if (fill && track) {
-      const maxH = barMaxH_arg || 400;
+      // Lire la hauteur réelle CSS de la track (flex:1 dans le parent, pas de JS)
+      const maxH = track.getBoundingClientRect().height || 300;
       const minH = 16;
-      // Hauteur basée sur le % réel du total (pas sur maxVotes)
+      // Hauteur basée sur le % réel du total
       // → 50% des votes = 50% de la hauteur max
       const heightPx = showResults && total > 0
         ? Math.max(minH, Math.round(pct / 100 * maxH))
         : minH;
       fill.style.height = heightPx + 'px';
+      // Synchroniser --bar-max-h pour le dégradé background-size
       fill.style.setProperty('--bar-max-h', maxH + 'px');
-      track.style.setProperty('--bar-max-h', maxH + 'px');
     }
     if (pctEl) {
       pctEl.textContent = showResults && total > 0 ? pct + '%' : '';
