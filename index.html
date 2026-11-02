@@ -1671,6 +1671,7 @@ let _editingPollId = null;
 let currentLiveData = null; // dernier état Firebase live
 let currentPublicPoll = null;  // poll courant côté participant
 let currentPublicPollId = null;
+let currentPublicResetAt = 0;  // resetAt du poll courant — mis à jour à chaque snap Firebase
 
 // ─── REFS FIREBASE ───
 const pollsRef = () => ref(db, `${DB_PATH}/polls`);
@@ -1760,6 +1761,7 @@ function initPublic() {
       // Stocker pour usage dans castVote
       currentPublicPoll = poll;
       currentPublicPollId = live.pollId;
+      currentPublicResetAt = poll.resetAt || 0;
       document.getElementById('no-poll-state').style.display = 'none';
       document.getElementById('active-poll-state').style.display = 'block';
       // Si déjà voté → toujours afficher les résultats en live
@@ -1778,15 +1780,17 @@ function initPublic() {
 function renderPublicPoll(pollId, poll, showResults, votingOpen) {
   document.getElementById('pub-poll-question').textContent = poll.question || '—';
 
-  const storedRaw = localStorage.getItem(`sfld_vote_${pollId}`);
   const resetAt = poll.resetAt || 0;
+  // Toujours synchroniser la variable globale avec le poll courant
+  currentPublicResetAt = resetAt;
+  const storedRaw = localStorage.getItem(`sfld_vote_${pollId}`);
   let myVoteIdx = null;
   if (storedRaw !== null) {
     try {
       const stored = JSON.parse(storedRaw);
       if ((stored.ts || 0) >= resetAt) myVoteIdx = stored.idx;
     } catch(e) {
-      // Ancien format string brut (avant v42) — on l'ignore : resetAt = 0 donc valide
+      // Ancien format string brut (avant v42) — valide seulement si jamais resetté
       if (resetAt === 0) myVoteIdx = parseInt(storedRaw);
     }
   }
@@ -1848,7 +1852,8 @@ function renderPublicPoll(pollId, poll, showResults, votingOpen) {
 function hasAlreadyVoted(pollId) {
   const storedRaw = localStorage.getItem(`sfld_vote_${pollId}`);
   if (storedRaw === null) return false;
-  const resetAt = currentPublicPoll?.resetAt || 0;
+  // currentPublicResetAt est mis à jour à chaque snap Firebase — toujours frais
+  const resetAt = currentPublicResetAt;
   try {
     const stored = JSON.parse(storedRaw);
     return (stored.ts || 0) >= resetAt;
