@@ -1763,7 +1763,10 @@ function initPublic() {
       document.getElementById('no-poll-state').style.display = 'none';
       document.getElementById('active-poll-state').style.display = 'block';
       // Si déjà voté → toujours afficher les résultats en live
-      const hasVoted = localStorage.getItem(`sfld_vote_${live.pollId}`) !== null;
+      const storedVote = localStorage.getItem(`sfld_vote_${live.pollId}`);
+      const resetAt = poll?.resetAt || 0;
+      const voteTs = storedVote ? (JSON.parse(storedVote).ts || 0) : 0;
+      const hasVoted = storedVote !== null && voteTs >= resetAt;
       const showRes = hasVoted || live.resultsVisible !== false;
       // Les votes ne sont ouverts que quand sceneMode === 'results'
       const votingOpen = live.sceneMode === 'results';
@@ -1775,8 +1778,19 @@ function initPublic() {
 function renderPublicPoll(pollId, poll, showResults, votingOpen) {
   document.getElementById('pub-poll-question').textContent = poll.question || '—';
 
-  const hasVoted = localStorage.getItem(`sfld_vote_${pollId}`);
-  const myVote = hasVoted;
+  const storedRaw = localStorage.getItem(`sfld_vote_${pollId}`);
+  const resetAt = poll.resetAt || 0;
+  let myVoteIdx = null;
+  if (storedRaw !== null) {
+    try {
+      const stored = JSON.parse(storedRaw);
+      if ((stored.ts || 0) >= resetAt) myVoteIdx = stored.idx;
+    } catch(e) {
+      // Ancien format string brut (avant v42) — on l'ignore : resetAt = 0 donc valide
+      if (resetAt === 0) myVoteIdx = parseInt(storedRaw);
+    }
+  }
+  const hasVoted = myVoteIdx !== null;
   const votedMsg = document.getElementById('pub-voted-msg');
   const optionsEl = document.getElementById('pub-poll-options');
   const votes = poll.votes || {};
@@ -1809,13 +1823,13 @@ function renderPublicPoll(pollId, poll, showResults, votingOpen) {
     });
   } else {
     votedMsg.style.display = 'block';
-    document.getElementById('pub-voted-answer').textContent = opts[parseInt(myVote)] || '';
+    document.getElementById('pub-voted-answer').textContent = opts[myVoteIdx] || '';
 
     opts.forEach((opt, i) => {
       const v = Number(votes[`opt${i}`] || 0);
       const pct = totalVotes > 0 ? Math.round(v / totalVotes * 100) : 0;
       const btn = document.createElement('div');
-      btn.className = 'poll-option-btn voted' + (myVote == i ? ' my-vote' : '');
+      btn.className = 'poll-option-btn voted' + (myVoteIdx === i ? ' my-vote' : '');
       const letter = (i + 1);
       btn.innerHTML = `
         <span class="option-letter">${letter}</span>
@@ -1831,9 +1845,21 @@ function renderPublicPoll(pollId, poll, showResults, votingOpen) {
   }
 }
 
+function hasAlreadyVoted(pollId) {
+  const storedRaw = localStorage.getItem(`sfld_vote_${pollId}`);
+  if (storedRaw === null) return false;
+  const resetAt = currentPublicPoll?.resetAt || 0;
+  try {
+    const stored = JSON.parse(storedRaw);
+    return (stored.ts || 0) >= resetAt;
+  } catch(e) {
+    return resetAt === 0; // ancien format : valide seulement si jamais resetté
+  }
+}
+
 function askVoteConfirm(pollId, optIdx, optText) {
   // Guard: déjà voté
-  if (localStorage.getItem(`sfld_vote_${pollId}`) !== null) return;
+  if (hasAlreadyVoted(pollId)) return;
   // Afficher le dialogue de pré-confirmation
   const overlay = document.getElementById('pre-vote-overlay');
   document.getElementById('pre-vote-answer-text').textContent = optText;
@@ -1861,13 +1887,14 @@ function askVoteConfirm(pollId, optIdx, optText) {
 
 async function castVote(pollId, optIdx, optText) {
   // Guard: vote unique par sondage
-  if (localStorage.getItem(`sfld_vote_${pollId}`) !== null) return;
+  if (hasAlreadyVoted(pollId)) return;
   // Incrémenter atomiquement
   const vRef = ref(db, `${DB_PATH}/polls/${pollId}/votes/opt${optIdx}`);
   const snap = await get(vRef);
   const cur = Number(snap.val() || 0);
   await set(vRef, cur + 1);
-  localStorage.setItem(`sfld_vote_${pollId}`, optIdx);
+  // Stocker avec timestamp pour invalidation après reset
+  localStorage.setItem(`sfld_vote_${pollId}`, JSON.stringify({ idx: optIdx, ts: Date.now() }));
 
   // Mise à jour immédiate du DOM avec le poll courant (stocké par initPublic)
   const poll = currentPublicPoll || polls[pollId];
@@ -2038,7 +2065,8 @@ window.resetSelectedPollVotes = async function() {
   const opts = polls[selectedPollId]?.options || [];
   const emptyVotes = {};
   opts.forEach((_, i) => { emptyVotes[`opt${i}`] = 0; });
-  await update(ref(db, `${DB_PATH}/polls/${selectedPollId}`), { votes: emptyVotes });
+  // resetAt invalide les votes localStorage antérieurs chez les participants
+  await update(ref(db, `${DB_PATH}/polls/${selectedPollId}`), { votes: emptyVotes, resetAt: Date.now() });
   showToast('Compteurs remis à zéro ↺');
 };
 
