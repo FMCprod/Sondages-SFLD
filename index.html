@@ -876,6 +876,11 @@ body {
   font-size: 42px; /* garder la grande taille pendant l'animation */
   transform: translateY(var(--question-offset, 0px));
   transition: none; /* sans transition : état initial figé */
+  /* Forcer la même largeur qu'en mode question pour éviter le rewrap */
+  width: var(--question-frozen-w, auto);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 #scene-poll[data-scene-mode="results"].bars-entering .scene-bars-wrap,
 #scene-poll[data-scene-mode="results"].bars-entering .scene-total {
@@ -980,7 +985,8 @@ body {
   height: 100%;
   display: flex;
   align-items: flex-end;
-  overflow: visible; /* la fill a ses propres border-radius, pas besoin de clipping */
+  overflow: hidden; /* empêche la barre de déborder dans la zone pct */
+  border-radius: 22px; /* coins arrondis du track — clippent la fill */
   background: transparent; /* aucun fond sombre — pas de jauge vide */
 }
 
@@ -1750,12 +1756,14 @@ function initPublic() {
       // Si déjà voté → toujours afficher les résultats en live
       const hasVoted = localStorage.getItem(`sfld_vote_${live.pollId}`) !== null;
       const showRes = hasVoted || live.resultsVisible !== false;
-      renderPublicPoll(live.pollId, poll, showRes);
+      // Les votes ne sont ouverts que quand sceneMode === 'results'
+      const votingOpen = live.sceneMode === 'results';
+      renderPublicPoll(live.pollId, poll, showRes, votingOpen);
     }, { onlyOnce: false });
   });
 }
 
-function renderPublicPoll(pollId, poll, showResults) {
+function renderPublicPoll(pollId, poll, showResults, votingOpen) {
   document.getElementById('pub-poll-question').textContent = poll.question || '—';
 
   const hasVoted = localStorage.getItem(`sfld_vote_${pollId}`);
@@ -1768,7 +1776,7 @@ function renderPublicPoll(pollId, poll, showResults) {
   const opts = poll.options || [];
   optionsEl.innerHTML = '';
 
-  if (!hasVoted) {
+  if (!hasVoted && votingOpen) {
     votedMsg.style.display = 'none';
     opts.forEach((opt, i) => {
       const btn = document.createElement('button');
@@ -1776,6 +1784,18 @@ function renderPublicPoll(pollId, poll, showResults) {
       const letter = (i + 1);
       btn.innerHTML = `<span class="option-letter">${letter}</span> <span>${opt}</span>`;
       btn.onclick = () => askVoteConfirm(pollId, i, opt);
+      optionsEl.appendChild(btn);
+    });
+  } else if (!hasVoted && !votingOpen) {
+    // Question en cours mais vote pas encore ouvert
+    votedMsg.style.display = 'none';
+    opts.forEach((opt, i) => {
+      const btn = document.createElement('div');
+      btn.className = 'poll-option-btn';
+      btn.style.opacity = '0.45';
+      btn.style.cursor = 'default';
+      const letter = (i + 1);
+      btn.innerHTML = `<span class="option-letter">${letter}</span> <span>${opt}</span>`;
       optionsEl.appendChild(btn);
     });
   } else {
@@ -2377,6 +2397,8 @@ function doTransition(scenePoll, mode, prevMode, applyDataMode) {
 
       // 1. Préparer l'état initial : question à sa position centrée via translateY, sans transition
       scenePoll.style.setProperty('--question-offset', offset + 'px');
+      // Figer la largeur de la question pour éviter le rewrap quand max-width du parent change
+      scenePoll.style.setProperty('--question-frozen-w', qRect.width + 'px');
       questionEl.style.transition = 'none';
       scenePoll.classList.add('bars-entering');
 
@@ -2392,6 +2414,7 @@ function doTransition(scenePoll, mode, prevMode, applyDataMode) {
           // Animation terminée : révéler les barres (still à minH)
           scenePoll.classList.remove('bars-entering');
           scenePoll.style.removeProperty('--question-offset');
+          scenePoll.style.removeProperty('--question-frozen-w');
           // Après 1 frame (barres visibles dans le flux, taille réelle mesurable),
           // lancer l'animation des barres vers leurs vraies hauteurs
           requestAnimationFrame(() => {
@@ -2405,7 +2428,7 @@ function doTransition(scenePoll, mode, prevMode, applyDataMode) {
               // Recalculer targetH depuis le % stocké (plus fiable que le dataset calculé hors flux)
               const pctStored = parseFloat(fill.dataset.pct || '0');
               const minH = 16;
-              const usableH = maxH - 22;
+              const usableH = maxH;
               const targetH = pctStored >= 100 ? usableH : Math.max(minH, Math.floor(pctStored / 100 * usableH));
               fill.style.height = targetH + 'px';
             });
@@ -2477,8 +2500,8 @@ function _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH_arg
       }
       const minH = 16;
       // Utiliser floor pour éviter que la barre dépasse le track, mais pour 100% = maxH exact
-      // Laisser border-radius (22px) visible en haut : réduire maxH de 22px
-      const usableH = maxH - 22;
+      // maxH = hauteur exacte du track (overflow:hidden empêche tout débordement)
+      const usableH = maxH;
       const rawH = pct / 100 * usableH;
       const targetH = showResults && total > 0
         ? (pct >= 100 ? usableH : Math.max(minH, Math.floor(rawH)))
