@@ -852,6 +852,14 @@ body {
   font-size: 34px;
   transform: translateY(0);
   margin-bottom: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+/* Image masquée en mode results */
+#scene-poll[data-scene-mode="results"] #scene-question-img-wrap {
+  display: none !important;
 }
 /* Barres dans le flux en mode résultats */
 #scene-poll[data-scene-mode="results"] .scene-bars-wrap {
@@ -869,28 +877,6 @@ body {
   flex: 0 0 auto;
   opacity: 1;
   transform: translateY(0);
-}
-/* Pendant l'animation d'entrée : barres hors du flux
-   ET question décalée vers le bas (position initiale = centrée) */
-#scene-poll[data-scene-mode="results"].bars-entering .scene-question {
-  font-size: 42px; /* garder la grande taille pendant l'animation */
-  transform: translateY(var(--question-offset, 0px));
-  transition: none; /* sans transition : état initial figé */
-  /* Forcer la même largeur qu'en mode question pour éviter le rewrap */
-  width: var(--question-frozen-w, auto);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-#scene-poll[data-scene-mode="results"].bars-entering .scene-bars-wrap,
-#scene-poll[data-scene-mode="results"].bars-entering .scene-total {
-  position: absolute;
-  visibility: hidden;
-  opacity: 0;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
 }
 
 /* Barres verticales — layout en 2 rangées :
@@ -985,8 +971,8 @@ body {
   height: 100%;
   display: flex;
   align-items: flex-end;
-  overflow: hidden; /* empêche la barre de déborder dans la zone pct */
-  border-radius: 22px; /* coins arrondis du track — clippent la fill */
+  overflow: hidden;
+  border-radius: 22px;
   background: transparent; /* aucun fond sombre — pas de jauge vide */
 }
 
@@ -1554,6 +1540,9 @@ body {
     </div>
     <div id="scene-poll" data-scene-mode="question">
       <div class="scene-question" id="scene-question-text">—</div>
+      <div id="scene-question-img-wrap" style="display:none;width:100%;max-width:860px;margin:0 auto 20px;flex-shrink:0">
+        <img id="scene-question-img" style="max-width:100%;max-height:440px;display:block;margin:0 auto;border-radius:20px">
+      </div>
       <div class="scene-bars-wrap" id="scene-bars"></div>
       <div class="scene-total" id="scene-total"></div>
     </div>
@@ -1563,6 +1552,7 @@ body {
       <div style="font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,0.45);">BONNE RÉPONSE</div>
       <div id="scene-answer-letter" style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#7850B4,#8CD63C);display:flex;align-items:center;justify-content:center;font-size:36px;font-weight:900;color:#fff;box-shadow:0 0 48px rgba(140,214,60,0.5);margin:0 auto;"></div>
       <div id="scene-answer-text" style="font-size:42px;font-weight:800;color:#8CD63C;line-height:1.2;text-shadow:0 0 48px rgba(140,214,60,0.5);text-wrap:balance;padding:0 24px;"></div>
+      <ul id="scene-answer-comment" style="list-style:none;display:none;flex-direction:column;gap:10px;padding:0 48px;margin-top:4px;text-align:left;max-width:700px;width:100%"></ul>
       <div id="scene-answer-question" style="font-size:18px;font-weight:500;color:rgba(255,255,255,0.45);line-height:1.4;text-wrap:balance;padding:0 48px;margin-top:8px;"></div>
     </div>
 
@@ -1597,10 +1587,29 @@ body {
       <button class="add-option-btn" onclick="addOption()">+ Ajouter une réponse</button>
     </div>
     <div class="form-group">
+      <label class="form-label">🖼️ Image (JPG/PNG — optionnel)</label>
+      <input type="file" accept="image/jpeg,image/png,image/webp" id="modal-image-file" style="display:none" onchange="previewModalImage(this)">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('modal-image-file').click()">📁 Choisir une image</button>
+        <button type="button" class="btn btn-sm" id="modal-image-clear" style="display:none;color:var(--red);border-color:var(--red)" onclick="clearModalImage()">✕ Supprimer</button>
+      </div>
+      <div id="modal-image-preview" style="margin-top:10px;display:none">
+        <img id="modal-image-thumb" style="max-height:120px;max-width:100%;border-radius:8px;border:1px solid var(--border)">
+      </div>
+      <input type="hidden" id="modal-image-data">
+    </div>
+    <div class="form-group">
       <label class="form-label">✅ Bonne réponse</label>
       <select class="form-input" id="modal-correct-answer">
         <option value="">— Aucune (sondage d'opinion) —</option>
       </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">💬 Points clés bonne réponse <span style="font-weight:400;color:var(--muted)">(optionnel — max 6)</span></label>
+      <div id="comment-bullets-builder" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px"></div>
+      <button type="button" class="add-option-btn" id="add-comment-bullet-btn" onclick="addCommentBullet('')" style="font-size:13px">+ Ajouter un point</button>
+      <!-- Champ caché sérialisé en JSON -->
+      <input type="hidden" id="modal-answer-comment">
     </div>
     <div class="form-actions">
       <button class="btn btn-primary" onclick="savePoll()">💾 Enregistrer</button>
@@ -2036,8 +2045,8 @@ window.resetSelectedPollVotes = async function() {
 window.setSceneMode = async function(mode) {
   const live = (await get(liveRef())).val();
   if (!live?.pollId) { showToast('Aucun sondage en cours'); return; }
-  if (mode === 'answer' || mode === 'question') {
-    // Stinger pour la bonne réponse ET pour afficher la question (transition nette)
+  if (mode === 'answer' || mode === 'question' || mode === 'results') {
+    // Stinger pour toutes les transitions entre modes scène
     await update(liveRef(), { sceneMode: mode, stingerAt: Date.now() });
   } else {
     await update(liveRef(), { sceneMode: mode });
@@ -2064,6 +2073,9 @@ window.openCreateModal = function() {
   document.getElementById('modal-title').textContent = 'Nouveau sondage';
   document.getElementById('modal-question').value = '';
   buildOptionsUI(['', ''], null);
+  // Réinitialiser image et commentaire
+  clearModalImage();
+  buildCommentBulletsUI([]);
   document.getElementById('poll-modal').classList.add('open');
   setTimeout(() => document.getElementById('modal-question').focus(), 100);
 };
@@ -2076,7 +2088,92 @@ window.editSelectedPoll = function() {
   document.getElementById('modal-title').textContent = 'Modifier le sondage';
   document.getElementById('modal-question').value = poll.question || '';
   buildOptionsUI(poll.options || ['',''], poll.correctAnswer ?? null);
+  // Peupler bullets commentaire
+  let savedBullets = [];
+  if (poll.answerComment) {
+    try { savedBullets = JSON.parse(poll.answerComment); } catch(e) {
+      // Compat ancien format texte plat
+      if (typeof poll.answerComment === 'string') savedBullets = [poll.answerComment];
+    }
+  }
+  buildCommentBulletsUI(Array.isArray(savedBullets) ? savedBullets : []);
+  // Peupler image
+  clearModalImage();
+  if (poll.imageData) {
+    document.getElementById('modal-image-data').value = poll.imageData;
+    document.getElementById('modal-image-thumb').src = poll.imageData;
+    document.getElementById('modal-image-preview').style.display = 'block';
+    document.getElementById('modal-image-clear').style.display = 'inline-flex';
+  }
   document.getElementById('poll-modal').classList.add('open');
+};
+
+// ─── BULLET POINTS COMMENTAIRE ───
+window.addCommentBullet = function(val='') {
+  const container = document.getElementById('comment-bullets-builder');
+  const addBtn = document.getElementById('add-comment-bullet-btn');
+  const count = container.querySelectorAll('.comment-bullet-row').length;
+  if (count >= 6) return;
+
+  const row = document.createElement('div');
+  row.className = 'comment-bullet-row';
+  row.style.cssText = 'display:flex;align-items:center;gap:8px';
+  row.innerHTML = `<span style="color:var(--green);font-size:18px;flex-shrink:0">•</span>
+    <input type="text" class="form-input comment-bullet-input" value="${escHtml(val)}" placeholder="Point clé…" style="flex:1">
+    <button type="button" class="btn-remove-option" onclick="removeCommentBullet(this)">×</button>`;
+  container.appendChild(row);
+
+  // Masquer le bouton si 6 lignes atteintes
+  if (container.querySelectorAll('.comment-bullet-row').length >= 6) {
+    addBtn.style.display = 'none';
+  }
+};
+
+window.removeCommentBullet = function(btn) {
+  const row = btn.closest('.comment-bullet-row');
+  if (row) row.remove();
+  const addBtn = document.getElementById('add-comment-bullet-btn');
+  if (addBtn) addBtn.style.display = '';
+};
+
+function getCommentBullets() {
+  return [...document.querySelectorAll('.comment-bullet-input')]
+    .map(i => i.value.trim())
+    .filter(Boolean);
+}
+
+function buildCommentBulletsUI(bullets) {
+  const container = document.getElementById('comment-bullets-builder');
+  const addBtn = document.getElementById('add-comment-bullet-btn');
+  container.innerHTML = '';
+  if (addBtn) addBtn.style.display = '';
+  (bullets || []).forEach(b => addCommentBullet(b));
+}
+
+window.previewModalImage = function(input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const data = e.target.result;
+    document.getElementById('modal-image-data').value = data;
+    document.getElementById('modal-image-thumb').src = data;
+    document.getElementById('modal-image-preview').style.display = 'block';
+    document.getElementById('modal-image-clear').style.display = 'inline-flex';
+  };
+  reader.readAsDataURL(file);
+};
+
+window.clearModalImage = function() {
+  document.getElementById('modal-image-data').value = '';
+  const thumb = document.getElementById('modal-image-thumb');
+  if (thumb) thumb.src = '';
+  const preview = document.getElementById('modal-image-preview');
+  if (preview) preview.style.display = 'none';
+  const clearBtn = document.getElementById('modal-image-clear');
+  if (clearBtn) clearBtn.style.display = 'none';
+  const fileInput = document.getElementById('modal-image-file');
+  if (fileInput) fileInput.value = '';
 };
 
 function buildOptionsUI(opts, correctIdx) {
@@ -2145,11 +2242,23 @@ window.savePoll = async function() {
   const correctAnswer = (correctSel !== '' && correctSel !== null && correctSel !== undefined)
     ? Number(correctSel) : null;
 
+  const bullets = getCommentBullets();
+  const answerComment = bullets.length > 0 ? JSON.stringify(bullets) : null;
+  const imageData = document.getElementById('modal-image-data')?.value || null;
+
+  const pollData = {
+    question,
+    options: opts,
+    correctAnswer,
+    answerComment: answerComment || null,
+    imageData: imageData || null
+  };
+
   if (_editingPollId) {
-    await update(ref(db, `${DB_PATH}/polls/${_editingPollId}`), { question, options: opts, correctAnswer });
+    await update(ref(db, `${DB_PATH}/polls/${_editingPollId}`), pollData);
     showToast('Sondage modifié ✓');
   } else {
-    await push(pollsRef(), { question, options: opts, status: 'draft', votes: {}, correctAnswer });
+    await push(pollsRef(), { ...pollData, status: 'draft', votes: {} });
     showToast('Sondage créé ✓');
   }
   closeModal();
@@ -2295,7 +2404,7 @@ function renderScene(poll, sceneMode) {
     sceneAnswer.style.display = 'flex';
     const opts = poll.options || [];
     const correctIdx = poll.correctAnswer ?? null;
-    
+
     if (correctIdx !== null && opts[correctIdx] !== undefined) {
       document.getElementById('scene-answer-letter').textContent = (correctIdx + 1);
       document.getElementById('scene-answer-text').textContent = opts[correctIdx];
@@ -2304,6 +2413,28 @@ function renderScene(poll, sceneMode) {
       document.getElementById('scene-answer-letter').textContent = '?';
       document.getElementById('scene-answer-text').textContent = 'Bonne réponse non définie';
       document.getElementById('scene-answer-question').textContent = poll.question || '';
+    }
+    // Afficher les bullet points commentaire bonne réponse
+    const commentEl = document.getElementById('scene-answer-comment');
+    if (commentEl) {
+      commentEl.innerHTML = '';
+      let bullets = [];
+      if (poll.answerComment) {
+        try { bullets = JSON.parse(poll.answerComment); } catch(e) {
+          if (typeof poll.answerComment === 'string') bullets = [poll.answerComment];
+        }
+      }
+      if (Array.isArray(bullets) && bullets.length > 0) {
+        bullets.forEach(b => {
+          const li = document.createElement('li');
+          li.style.cssText = 'display:flex;align-items:flex-start;gap:10px;font-size:22px;font-weight:500;color:#fff;line-height:1.4';
+          li.innerHTML = `<span style="color:#8CD63C;font-size:20px;margin-top:2px;flex-shrink:0">•</span><span>${escHtml(b)}</span>`;
+          commentEl.appendChild(li);
+        });
+        commentEl.style.display = 'flex';
+      } else {
+        commentEl.style.display = 'none';
+      }
     }
     return;
   }
@@ -2339,6 +2470,19 @@ function renderScene(poll, sceneMode) {
   const total = Object.values(votes).reduce((s,v)=>s+Number(v),0);
 
   document.getElementById('scene-question-text').textContent = poll.question || '—';
+
+  // Image question — affichée uniquement en mode question
+  const imgWrap = document.getElementById('scene-question-img-wrap');
+  const imgEl = document.getElementById('scene-question-img');
+  if (imgWrap && imgEl) {
+    if (mode === 'question' && poll.imageData) {
+      imgEl.src = poll.imageData;
+      imgWrap.style.display = 'block';
+    } else {
+      imgWrap.style.display = 'none';
+      imgEl.src = '';
+    }
+  }
 
   const maxVotes = Math.max(1, ...opts.map((_,i) => Number(votes[`opt${i}`]||0)));
   const barsEl = document.getElementById('scene-bars');
@@ -2382,73 +2526,32 @@ function renderScene(poll, sceneMode) {
 }
 
 function doTransition(scenePoll, mode, prevMode, applyDataMode) {
-  if (mode === 'results' && prevMode === 'question') {
-    // Mesurer la position AVANT que data-scene-mode change (question encore centrée)
-    const questionEl = scenePoll.querySelector('.scene-question');
-    const pollRect = scenePoll.getBoundingClientRect();
-    const qRect = questionEl ? questionEl.getBoundingClientRect() : null;
+  // Le stinger gère toutes les transitions entre modes (question→results inclus)
+  // doTransition applique simplement le nouveau mode et anime les barres si besoin
+  if (applyDataMode) applyDataMode();
+  scenePoll.classList.remove('bars-entering');
+  scenePoll.style.removeProperty('--question-offset');
+  scenePoll.style.removeProperty('--question-frozen-w');
+  scenePoll.style.removeProperty('--question-frozen-h');
+  const questionEl = scenePoll.querySelector('.scene-question');
+  if (questionEl) questionEl.style.transition = '';
 
-    if (questionEl && qRect && pollRect.height > 0) {
-      // Centre Y actuel dans scene-poll (état question = centrée)
-      const currentCenterY = qRect.top - pollRect.top + qRect.height / 2;
-      // Position cible en mode results : en haut → centre = qRect.height/2
-      const targetCenterY = qRect.height / 2;
-      const offset = currentCenterY - targetCenterY;
-
-      // 1. Préparer l'état initial : question à sa position centrée via translateY, sans transition
-      scenePoll.style.setProperty('--question-offset', offset + 'px');
-      // Figer la largeur de la question pour éviter le rewrap quand max-width du parent change
-      scenePoll.style.setProperty('--question-frozen-w', qRect.width + 'px');
-      questionEl.style.transition = 'none';
-      scenePoll.classList.add('bars-entering');
-
-      // 2. Appliquer data-scene-mode="results" (les barres arrivent dans le DOM mais restent hors flux)
-      if (applyDataMode) applyDataMode();
-
-      // 3. Deux frames : activer la transition → CSS anime transform de offset→0
-      clearTimeout(scenePoll._barsTimer);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        questionEl.style.transition = '';
-        // La question glisse vers le haut pendant 680ms
-        scenePoll._barsTimer = setTimeout(() => {
-          // Animation terminée : révéler les barres (still à minH)
-          scenePoll.classList.remove('bars-entering');
-          scenePoll.style.removeProperty('--question-offset');
-          scenePoll.style.removeProperty('--question-frozen-w');
-          // Après 1 frame (barres visibles dans le flux, taille réelle mesurable),
-          // lancer l'animation des barres vers leurs vraies hauteurs
-          requestAnimationFrame(() => {
-            // Barres maintenant dans le flux et mesurables — recalculer les hauteurs
-            scenePoll.querySelectorAll('.scene-bar-track').forEach((track) => {
-              const fill = track.querySelector('.scene-bar-fill');
-              if (!fill) return;
-              const maxH = track.getBoundingClientRect().height;
-              if (!maxH) return;
-              fill.style.setProperty('--bar-max-h', maxH + 'px');
-              // Recalculer targetH depuis le % stocké (plus fiable que le dataset calculé hors flux)
-              const pctStored = parseFloat(fill.dataset.pct || '0');
-              const minH = 16;
-              const usableH = maxH;
-              const targetH = pctStored >= 100 ? usableH : Math.max(minH, Math.floor(pctStored / 100 * usableH));
-              fill.style.height = targetH + 'px';
-            });
-          });
-        }, 680);
-      }));
-    } else {
-      // Fallback sans mesure
-      if (applyDataMode) applyDataMode();
-      scenePoll.classList.add('bars-entering');
-      clearTimeout(scenePoll._barsTimer);
-      scenePoll._barsTimer = setTimeout(() => scenePoll.classList.remove('bars-entering'), 680);
-    }
-  } else {
-    // Passage direct — pas d'animation
-    if (applyDataMode) applyDataMode();
-    scenePoll.classList.remove('bars-entering');
-    scenePoll.style.removeProperty('--question-offset');
-    const questionEl = scenePoll.querySelector('.scene-question');
-    if (questionEl) questionEl.style.transition = '';
+  if (mode === 'results') {
+    // Animer les barres vers leurs hauteurs cibles après 1 frame
+    requestAnimationFrame(() => {
+      scenePoll.querySelectorAll('.scene-bar-track').forEach((track) => {
+        const fill = track.querySelector('.scene-bar-fill');
+        if (!fill) return;
+        const maxH = track.getBoundingClientRect().height;
+        if (!maxH) return;
+        fill.style.setProperty('--bar-max-h', maxH + 'px');
+        const pctStored = parseFloat(fill.dataset.pct || '0');
+        const minH = 16;
+        const usableH = maxH;
+        const targetH = pctStored >= 100 ? usableH : Math.max(minH, Math.floor(pctStored / 100 * usableH));
+        fill.style.height = targetH + 'px';
+      });
+    });
   }
 }
 
@@ -2500,7 +2603,6 @@ function _updateSceneBars(opts, votes, total, maxVotes, showResults, barMaxH_arg
       }
       const minH = 16;
       // Utiliser floor pour éviter que la barre dépasse le track, mais pour 100% = maxH exact
-      // maxH = hauteur exacte du track (overflow:hidden empêche tout débordement)
       const usableH = maxH;
       const rawH = pct / 100 * usableH;
       const targetH = showResults && total > 0
