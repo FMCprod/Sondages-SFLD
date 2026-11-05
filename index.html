@@ -1585,11 +1585,11 @@ body {
     <!-- Vue ma réponse -->
     <div id="scene-answer" style="display:none;width:100%;max-width:1500px;padding:0 72px;flex-direction:row;align-items:center;justify-content:center;gap:88px;margin:0 auto;">
       <!-- Colonne gauche : lettre + réponse + question -->
-      <div id="scene-answer-left" style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:28px;">
+      <div id="scene-answer-left" style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:28px;">
         <div style="font-size:26px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:rgba(26,10,58,0.4);">MA RÉPONSE</div>
         <div style="display:flex;align-items:center;gap:20px;">
-          <div id="scene-answer-letter" style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#7850B4,#8CD63C);display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:900;color:#fff;box-shadow:0 4px 24px rgba(120,80,180,0.25);flex-shrink:0;"></div>
-          <div id="scene-answer-text" style="font-size:48px;font-weight:800;color:#3D7A10;line-height:1.2;text-wrap:balance;"></div>
+          <div id="scene-answer-letter" style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#7850B4,#8CD63C);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;box-shadow:0 4px 24px rgba(120,80,180,0.25);flex-shrink:0;"></div>
+          <div id="scene-answer-text" style="font-size:36px;font-weight:800;color:#3D7A10;line-height:1.2;"></div>
         </div>
         <div id="scene-answer-question" style="font-size:26px;font-weight:500;color:rgba(26,10,58,0.4);line-height:1.4;text-wrap:balance;"></div>
       </div>
@@ -2499,6 +2499,7 @@ function renderScene(poll, sceneMode) {
           if (typeof poll.answerComment === 'string') bullets = [poll.answerComment];
         }
       }
+      const leftCol = document.getElementById('scene-answer-left');
       if (Array.isArray(bullets) && bullets.length > 0) {
         bullets.forEach(b => {
           const li = document.createElement('li');
@@ -2507,8 +2508,14 @@ function renderScene(poll, sceneMode) {
           commentEl.appendChild(li);
         });
         commentEl.style.display = 'flex';
+        // Layout 2 colonnes : gauche plus large, droite (bullets) légèrement moins
+        if (leftCol) { leftCol.style.flex = '1.8'; leftCol.style.alignItems = 'flex-start'; }
+        sceneAnswer.style.justifyContent = 'center';
       } else {
         commentEl.style.display = 'none';
+        // Sans bullets : colonne gauche centrée, utilise toute la largeur
+        if (leftCol) { leftCol.style.flex = '1'; leftCol.style.alignItems = 'center'; }
+        sceneAnswer.style.justifyContent = 'center';
       }
     }
     return;
