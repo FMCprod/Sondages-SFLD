@@ -827,7 +827,7 @@ body {
 
 /* Mode "question" : flex horizontal quand image présente, sinon centré */
 #scene-poll[data-scene-mode="question"] {
-  max-width: 1200px;
+  max-width: 1400px;
   justify-content: center;
   flex-direction: column;
   align-items: center;
@@ -860,10 +860,10 @@ body {
 }
 /* Sans image : question seule, centrée */
 #scene-poll[data-scene-mode="question"]:not(.has-image) .scene-question {
-  font-size: 48px;
+  font-size: 64px;
   transform: translateY(0);
   text-align: center;
-  max-width: 800px;
+  max-width: 1000px;
 }
 /* Image en mode question sans classe has-image : cachée */
 #scene-poll[data-scene-mode="question"]:not(.has-image) #scene-question-img-wrap {
@@ -1583,18 +1583,18 @@ body {
     </div>
 
     <!-- Vue ma réponse -->
-    <div id="scene-answer" style="display:none;width:100%;max-width:1200px;padding:0 48px;flex-direction:row;align-items:center;justify-content:center;gap:64px;margin:0 auto;">
+    <div id="scene-answer" style="display:none;width:100%;max-width:1500px;padding:0 72px;flex-direction:row;align-items:center;justify-content:center;gap:88px;margin:0 auto;">
       <!-- Colonne gauche : lettre + réponse + question -->
-      <div id="scene-answer-left" style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:24px;">
-        <div style="font-size:18px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:rgba(26,10,58,0.4);">MA RÉPONSE</div>
+      <div id="scene-answer-left" style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:28px;">
+        <div style="font-size:26px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:rgba(26,10,58,0.4);">MA RÉPONSE</div>
         <div style="display:flex;align-items:center;gap:20px;">
-          <div id="scene-answer-letter" style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#7850B4,#8CD63C);display:flex;align-items:center;justify-content:center;font-size:32px;font-weight:900;color:#fff;box-shadow:0 4px 24px rgba(120,80,180,0.25);flex-shrink:0;"></div>
-          <div id="scene-answer-text" style="font-size:40px;font-weight:800;color:#3D7A10;line-height:1.2;text-wrap:balance;"></div>
+          <div id="scene-answer-letter" style="width:100px;height:100px;border-radius:50%;background:linear-gradient(135deg,#7850B4,#8CD63C);display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:900;color:#fff;box-shadow:0 4px 24px rgba(120,80,180,0.25);flex-shrink:0;"></div>
+          <div id="scene-answer-text" style="font-size:60px;font-weight:800;color:#3D7A10;line-height:1.2;text-wrap:balance;"></div>
         </div>
-        <div id="scene-answer-question" style="font-size:17px;font-weight:500;color:rgba(26,10,58,0.4);line-height:1.4;text-wrap:balance;"></div>
+        <div id="scene-answer-question" style="font-size:26px;font-weight:500;color:rgba(26,10,58,0.4);line-height:1.4;text-wrap:balance;"></div>
       </div>
       <!-- Colonne droite : bullets commentaire -->
-      <ul id="scene-answer-comment" style="list-style:none;display:none;flex-direction:column;gap:16px;flex:1.4;min-width:0;text-align:left;border-left:3px solid rgba(120,80,180,0.15);padding-left:48px;"></ul>
+      <ul id="scene-answer-comment" style="list-style:none;display:none;flex-direction:column;gap:24px;flex:1.8;min-width:0;text-align:left;border-left:3px solid rgba(120,80,180,0.2);padding-left:64px;"></ul>
     </div>
 
   </div>
@@ -2502,8 +2502,8 @@ function renderScene(poll, sceneMode) {
       if (Array.isArray(bullets) && bullets.length > 0) {
         bullets.forEach(b => {
           const li = document.createElement('li');
-          li.style.cssText = 'display:flex;align-items:flex-start;gap:14px;font-size:26px;font-weight:600;color:#1A0A3A;line-height:1.4';
-          li.innerHTML = `<span style="color:#7850B4;font-size:28px;margin-top:1px;flex-shrink:0;line-height:1">•</span><span>${escHtml(b)}</span>`;
+          li.style.cssText = 'display:flex;align-items:flex-start;gap:16px;font-size:34px;font-weight:600;color:#1A0A3A;line-height:1.4';
+          li.innerHTML = `<span style="color:#7850B4;font-size:36px;margin-top:0;flex-shrink:0;line-height:1.1">•</span><span>${escHtml(b)}</span>`;
           commentEl.appendChild(li);
         });
         commentEl.style.display = 'flex';
